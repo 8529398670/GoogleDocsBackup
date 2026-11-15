@@ -2,7 +2,12 @@
 # Paths match the live install on the HP EliteBook.
 
 paths:
-  bin: C:\Users\juno\agent\bin                          # rclone.exe + pandoc.exe
+  # rclone / pandoc programs. Leave empty (or wrong) and the next run looks them
+  # up (bin folder, PATH, /opt/homebrew/bin, /usr/local/bin, /usr/bin, ...)
+  # and writes what it found here.
+  rclone_exe: 'C:\Users\juno\agent\bin\rclone.exe'
+  pandoc_exe: 'C:\Users\juno\agent\bin\pandoc.exe'
+  bin: C:\Users\juno\agent\bin   # where fetch-tools (Windows) downloads them to
   # Relative paths are relative to this file, so ../x = <repo>/x.
   # private/, logs/ and backups/ are all git-ignored.
   rclone_config: ../private/rclone.conf  # holds Google tokens - never commit

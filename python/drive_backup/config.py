@@ -1,6 +1,9 @@
 """Load config.yaml into typed settings."""
 from __future__ import annotations
 
+import os
+import re
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -68,13 +71,70 @@ class Config:
     tools: ToolsOpts = field(default_factory=ToolsOpts)
     auth: AuthOpts = field(default_factory=AuthOpts)
 
+    source: Path | None = None  # the config.yaml this came from (not a yaml key)
+    exes: dict[str, Path] = field(default_factory=dict)  # resolved tool paths
+
+    def bin_target(self, name: str) -> Path:
+        """Where fetch-tools installs a tool."""
+        return self.paths.bin / (name + EXE)
+
     @property
     def rclone_exe(self) -> Path:
-        return self.paths.bin / "rclone.exe"
+        return self.exes.get("rclone") or self.bin_target("rclone")
 
     @property
     def pandoc_exe(self) -> Path:
-        return self.paths.bin / "pandoc.exe"
+        return self.exes.get("pandoc") or self.bin_target("pandoc")
+
+    def remember_tool(self, name: str, exe: Path) -> None:
+        """Use exe for this tool and write it into config.yaml."""
+        self.exes[name] = exe
+        if self.source:
+            save_path_value(self.source, f"{name}_exe", str(exe))
+
+
+EXE = ".exe" if os.name == "nt" else ""
+COMMON_DIRS = ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/snap/bin",
+               str(Path.home() / ".local" / "bin")]
+
+
+def find_tool(name: str, bin_dir: Path) -> Path | None:
+    """Look for a tool: the bin folder, then PATH, then the usual install dirs."""
+    candidates = [bin_dir / (name + EXE)]
+    if found := shutil.which(name):
+        candidates.append(Path(found))
+    candidates += [Path(d) / (name + EXE) for d in COMMON_DIRS]
+    return next((c.resolve() for c in candidates if c.is_file()), None)
+
+
+def save_path_value(cfg_file: Path, key: str, value: str) -> None:
+    """Set paths.<key> in config.yaml as text, so comments and layout survive."""
+    text = cfg_file.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    quoted = "'" + value.replace("'", "''") + "'"
+    start = next((i for i, l in enumerate(lines) if re.match(r"^paths:\s*(#.*)?$", l)), None)
+    if start is None:
+        raise ValueError("config.yaml has no 'paths:' section")
+    end = next((i for i in range(start + 1, len(lines))
+                if lines[i].strip() and not lines[i][0].isspace() and not lines[i].startswith("#")),
+               len(lines))
+    pat = re.compile(rf"^(\s+){re.escape(key)}:[ \t]*(?:'(?:[^']|'')*'|\"[^\"]*\"|[^#\r\n]*?)([ \t]*#[^\r\n]*)?(\r?\n)?$")
+    for i in range(start + 1, end):
+        if m := pat.match(lines[i]):
+            comment = m.group(2) or ""
+            lines[i] = f"{m.group(1)}{key}: {quoted}{comment}{m.group(3) or ''}"
+            break
+    else:
+        nl = "\r\n" if text.count("\r\n") else "\n"
+        lines.insert(end, f"  {key}: {quoted}  # found automatically{nl}")
+    new = "".join(lines)
+    try:  # never write a config.yaml that no longer parses or lost the value
+        ok = (yaml.safe_load(new) or {}).get("paths", {}).get(key) == value
+    except yaml.YAMLError:
+        ok = False
+    if not ok:
+        raise OSError(f"could not safely update paths.{key} in {cfg_file}; set it by hand")
+    cfg_file.write_text(new, encoding="utf-8", newline="")
 
 
 def _build(cls, data: dict | None, where: str):
@@ -99,6 +159,9 @@ def load(path: Path) -> Config:
     # relative paths are relative to the folder config.yaml lives in
     base = path.resolve().parent
     paths = Paths(**{k: (base / Path(p[k])).resolve() for k in keys})
+    unknown = set(p) - set(keys) - {"rclone_exe", "pandoc_exe"}
+    if unknown:
+        raise ValueError(f"config.yaml: unknown key(s) in paths: {', '.join(sorted(unknown))}")
     remotes = [_build(Remote, r, "remotes") for r in raw.pop("remotes")]
 
     sub = {
@@ -112,4 +175,18 @@ def load(path: Path) -> Config:
 
     if cfg.progress not in ("auto", "on", "off"):
         raise ValueError("config.yaml: progress must be auto, on or off")
+    cfg.source = path
+
+    # rclone / pandoc: use the configured path if it works; otherwise look the
+    # tool up and save what was found back into config.yaml.
+    for name in ("rclone", "pandoc"):
+        given = p.get(f"{name}_exe")
+        exe = (base / Path(given)).resolve() if given else None
+        if exe and exe.is_file():
+            cfg.exes[name] = exe
+        elif found := find_tool(name, paths.bin):
+            try:
+                cfg.remember_tool(name, found)
+            except OSError:  # config not writable - still use it this run
+                cfg.exes[name] = found
     return cfg

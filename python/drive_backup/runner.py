@@ -1,6 +1,7 @@
 """The backup itself: export -> convert -> upload, per remote."""
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 
@@ -167,7 +168,10 @@ def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
 
     for exe in (cfg.rclone_exe, cfg.pandoc_exe):
         if not exe.exists() and not (exe == cfg.pandoc_exe and not cfg.markdown.enabled):
-            console.print(f"[red]missing {exe}[/] - run: python backup.py fetch-tools")
+            hint = ("run: python backup.py fetch-tools" if os.name == "nt" else
+                    "install it: brew install rclone pandoc  (macOS)  /  "
+                    "sudo apt install rclone pandoc  (Debian/Ubuntu)")
+            console.print(f"[red]missing {exe.name}[/] - {hint}")
             return 2
 
     remotes = [r for r in cfg.remotes if r.enabled and (only is None or r.name == only)]

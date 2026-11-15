@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -54,6 +55,12 @@ def _version(exe: Path) -> str:
 
 
 def fetch(cfg: Config, console: Console) -> int:
+    if os.name != "nt":
+        console.print("fetch-tools downloads Windows builds. On macOS/Linux install them instead:\n"
+                      "  brew install rclone pandoc        (macOS)\n"
+                      "  sudo apt install rclone pandoc    (Debian/Ubuntu)\n"
+                      "The next run finds them and saves their paths into config.yaml.")
+        return 0
     bin_dir = cfg.paths.bin
     bin_dir.mkdir(parents=True, exist_ok=True)
     cfg.paths.rclone_config.parent.mkdir(parents=True, exist_ok=True)
@@ -62,6 +69,7 @@ def fetch(cfg: Config, console: Console) -> int:
         console.print("rclone already present")
     else:
         _install_from_zip(cfg.tools.rclone_url, "rclone.exe", bin_dir, console)
+        cfg.remember_tool("rclone", cfg.bin_target("rclone"))
         console.print("[green]rclone ok[/]")
 
     if cfg.pandoc_exe.exists():
@@ -77,6 +85,7 @@ def fetch(cfg: Config, console: Console) -> int:
             console.print("[red]pandoc windows asset not found[/]")
             return 1
         _install_from_zip(asset["browser_download_url"], "pandoc.exe", bin_dir, console)
+        cfg.remember_tool("pandoc", cfg.bin_target("pandoc"))
         console.print("[green]pandoc ok[/]")
 
     console.print(_version(cfg.rclone_exe))
