@@ -43,6 +43,10 @@ account's Drive `Backups` folder, mirroring the folder structure.
   via an auth task
 - `migrate-stage.ps1` - one-off staging-folder move, Sep 2026
 - `check_rclone.ps1` - checks whether rclone is currently running
+- `switch-task-to-python.ps1` - (admin) points `JunoDriveBackup` at the
+  Python version via `python/.venv`; Nov 2026
+- `JunoDriveBackup.old.xml` - the task as it was before the switch (restore
+  command is in the header of `switch-task-to-python.ps1`)
 
 `python/` - the Python version (see below).
 
