@@ -47,7 +47,7 @@ def start(cfg: Config, remotes: list[str], client_json: Path | None, console: Co
 
     client: list[str] = []
     if client_json is not None:
-        places = ([cfg.source.resolve().parent / "config", Path("~/Downloads")]
+        places = ([cfg.root / "config", Path("~/Downloads")]
                   if str(client_json) == "auto" else [client_json])
         path = next((p for p in map(find_client_json, places) if p), None)
         if not path:

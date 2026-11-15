@@ -1,4 +1,4 @@
-# GoogleDocsBackup
+﻿# GoogleDocsBackup
 
 `google-docs-backup` backs up Google Drive accounts with rclone and pandoc:
 
@@ -66,15 +66,22 @@ catch up on the next run. On Windows, rclone/pandoc also die with the backup
 if it's killed hard (Task Manager); leftover partial files from that are
 cleaned up at the start of the next run.
 
-## Settings: `config.yaml`
+## Settings: `config/config.yaml`
 
-Everything tweakable is in `config.yaml` in the repo root. It's found via
-`--config`, then `$GOOGLE_DOCS_BACKUP_CONFIG`, then `./config.yaml`, then the one
-next to the package. Relative paths in it are relative to the file itself.
+Everything tweakable is in `config/config.yaml`. That file is git-ignored;
+`config/config.example.yaml` is the template that's in git, and the first run
+on a fresh clone copies it to `config/config.yaml` for you. Edit
+`config.yaml`, not the example.
+
+It's found via `--config`, then `$GOOGLE_DOCS_BACKUP_CONFIG`, then
+`./config/config.yaml`, then the project's own. Relative paths in it are
+relative to the project folder (the one containing `config/`), so
+`./backups` means `<project>/backups`. `config/` is also where your Google
+OAuth `client_secret_*.json` goes (git-ignored).
 
 - `paths.rclone_exe` / `paths.pandoc_exe`: leave these empty or wrong and the
   next run finds the tools (bin folder, PATH, Homebrew, /usr/bin, ...) and
-  writes the paths back into `config.yaml`.
+  writes the paths back into `config/config.yaml`.
 - `remotes`: one entry per Google account (`enabled: false` skips one).
 - `parallel_remotes`: how many accounts back up at the same time (`0` = all
   at once, the default; `1` = one by one). One account failing doesn't stop
@@ -95,7 +102,9 @@ next to the package. Relative paths in it are relative to the file itself.
 | Path | What |
 |---|---|
 | `google_docs_backup/` | the Python package (`cli.py` is the entry point) |
-| `config.yaml` | all settings |
+| `config/config.example.yaml` | settings template (in git) |
+| `config/config.yaml` | your settings (git-ignored, made from the template) |
+| `config/client_secret_*.json` | your Google OAuth client (git-ignored) |
 | `pyproject.toml` | package metadata, the `google-docs-backup` command |
 | `run.bat`, `run.sh`, `run.command` | double-click / one-word launchers |
 | `install-service.bat`, `install-service.sh`, `install-service.command` | set up `.venv` + the scheduled service |
@@ -118,7 +127,7 @@ On macOS you can also double-click `install-service.command` in Finder.
 
 Both create `.venv`, install the package into it, and register the weekly run
 with the OS's own scheduler. Run them again after changing `service:` in
-`config.yaml`; `install-service.bat uninstall` / `./install-service.sh uninstall` removes it.
+`config/config.yaml`; `install-service.bat uninstall` / `./install-service.sh uninstall` removes it.
 
 | OS | Scheduler | Runs while logged out? |
 |---|---|---|
@@ -137,5 +146,5 @@ google-docs-backup service install | uninstall | status | show
 
 ## Exit codes
 
-0 ok · 1 an account failed (export or snapshot) · 2 setup/config error ·
-3 another run is in progress · 4 only pandoc errors
+0 ok Â· 1 an account failed (export or snapshot) Â· 2 setup/config error Â·
+3 another run is in progress Â· 4 only pandoc errors

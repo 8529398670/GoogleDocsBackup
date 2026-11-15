@@ -100,6 +100,11 @@ class Config:
     source: Path | None = None  # the config.yaml this came from (not a yaml key)
     exes: dict[str, Path] = field(default_factory=dict)  # resolved tool paths
 
+    @property
+    def root(self) -> Path:
+        """The project folder: relative paths in config.yaml start here."""
+        return project_root(self.source) if self.source else Path.cwd()
+
     def bin_target(self, name: str) -> Path:
         """Where fetch-tools installs a tool."""
         return self.paths.bin / (name + EXE)
@@ -117,7 +122,7 @@ class Config:
         self.exes[name] = exe
         if self.source:
             # inside the repo -> save as ./relative so no username/home path lands in git
-            base = self.source.resolve().parent
+            base = self.root
             try:
                 value = "./" + exe.resolve().relative_to(base).as_posix()
             except ValueError:
@@ -178,6 +183,24 @@ def _build(cls, data: dict | None, where: str):
     return cls(**data)
 
 
+def project_root(cfg_file: Path) -> Path:
+    """config/config.yaml -> the folder above config/; a config.yaml elsewhere -> its own folder."""
+    d = cfg_file.resolve().parent
+    return d.parent if d.name == "config" else d
+
+
+def ensure_config(path: Path) -> bool:
+    """First run on a fresh clone: create config.yaml from config.example.yaml.
+    Returns True if it was just created."""
+    if path.exists():
+        return False
+    example = path.with_name("config.example.yaml")
+    if not example.exists():
+        return False
+    path.write_text(example.read_text(encoding="utf-8"), encoding="utf-8")
+    return True
+
+
 def load(path: Path) -> Config:
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if "paths" not in raw or "remotes" not in raw:
@@ -188,8 +211,8 @@ def load(path: Path) -> Config:
     missing = [k for k in keys if k not in p]
     if missing:
         raise ValueError(f"config.yaml: paths is missing {', '.join(missing)}")
-    # relative paths are relative to the folder config.yaml lives in
-    base = path.resolve().parent
+    # relative paths are relative to the project folder (see project_root)
+    base = project_root(path)  # relative paths are relative to the project folder
     paths = Paths(**{k: (base / Path(p[k])).resolve() for k in keys})
     unknown = set(p) - set(keys) - {"rclone_exe", "pandoc_exe"}
     if unknown:

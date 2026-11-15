@@ -7,8 +7,9 @@
   google-docs-backup auth NAME
   google-docs-backup service install|uninstall|status|show
 
-Also works as `python -m google_docs_backup ...`. Settings live in config.yaml
-(see --config for how it is found).
+Also works as `python -m google_docs_backup ...`. Settings live in
+config/config.yaml (git-ignored), created from config/config.example.yaml on
+the first run (see --config for how it is found).
 """
 from __future__ import annotations
 
@@ -23,17 +24,21 @@ from pathlib import Path
 from rich.console import Console
 
 from . import __version__, auth, cancel, runner, service, tools
-from .config import load
+from .config import ensure_config, load
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def default_config() -> Path:
-    """$GOOGLE_DOCS_BACKUP_CONFIG, else ./config.yaml, else config.yaml next to the package."""
+    """$GOOGLE_DOCS_BACKUP_CONFIG, else ./config/config.yaml, else the project's config/config.yaml.
+    (A config.example.yaml next to it counts too: the first run copies it.)"""
     if env := os.environ.get("GOOGLE_DOCS_BACKUP_CONFIG"):
         return Path(env)
-    here = Path.cwd() / "config.yaml"
-    return here if here.exists() else REPO_ROOT / "config.yaml"
+    for base in (Path.cwd(), REPO_ROOT):
+        d = base / "config"
+        if (d / "config.yaml").exists() or (d / "config.example.yaml").exists():
+            return d / "config.yaml"
+    return REPO_ROOT / "config" / "config.yaml"
 
 
 def _rclone_pids() -> list[str]:
@@ -73,8 +78,8 @@ def status(cfg, console: Console) -> int:
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(prog="google-docs-backup", description="Google Drive backup")
     ap.add_argument("--config", type=Path, default=None,
-                    help="config file (default: $GOOGLE_DOCS_BACKUP_CONFIG, ./config.yaml, "
-                         "or config.yaml in the repo root)")
+                    help="config file (default: $GOOGLE_DOCS_BACKUP_CONFIG, else config/config.yaml "
+                         "in this folder or the project; created from config.example.yaml on first run)")
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = ap.add_subparsers(dest="cmd")  # no command = run
     p_run = sub.add_parser("run", help="export, convert, snapshot and upload (default)")
@@ -120,7 +125,11 @@ def _main(argv: list[str] | None) -> int:
 
     console = Console()
     try:
-        cfg = load(a.config or default_config())
+        path = a.config or default_config()
+        if ensure_config(path):
+            console.print(f"[green]created {path}[/] from config.example.yaml - "
+                          "edit it to set your accounts (remotes) and schedule")
+        cfg = load(path)
     except (OSError, ValueError, TypeError) as e:
         console.print(f"[red]config error:[/] {e}")
         return 2

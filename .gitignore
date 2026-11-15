@@ -36,3 +36,6 @@ desktop.ini
 .DS_Store
 .vscode/
 .idea/
+
+# your real settings (config/config.example.yaml is the template in git)
+config/config.yaml

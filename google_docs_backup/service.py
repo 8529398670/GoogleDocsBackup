@@ -5,8 +5,8 @@ macOS   : launchd LaunchAgent  ~/Library/LaunchAgents/<label>.plist
 Linux   : systemd timer        ~/.config/systemd/user/  or  /etc/systemd/system/
 
 The scheduled command is always:
-    <this python> -m google_docs_backup --config <config.yaml> run
-run from the folder config.yaml lives in.
+    <this python> -m google_docs_backup --config <config/config.yaml> run
+run from the project folder (the one containing config/).
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import plistlib
 import subprocess
 import sys
 import tempfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from xml.sax.saxutils import escape
 
@@ -49,7 +49,7 @@ def _command(cfg: Config) -> list[str]:
 
 
 def _workdir(cfg: Config) -> Path:
-    return cfg.source.resolve().parent
+    return cfg.root  # the project folder (the one containing config/)
 
 
 def _days(cfg: Config) -> list[str]:
@@ -79,7 +79,9 @@ def _is_admin() -> bool:
 def windows_task_xml(cfg: Config) -> str:
     sv = cfg.service
     h, m = sv.hour_minute
-    start = datetime.combine(date.today() + timedelta(days=1), datetime.min.time()).replace(hour=h, minute=m)
+    # Start today: Task Scheduler works out the next matching day/time from here, so a
+    # start of "tomorrow" would skip today's run if today is one of the days.
+    start = datetime.combine(date.today(), datetime.min.time()).replace(hour=h, minute=m)
     cmd = _command(cfg)
     args = " ".join(f'"{a}"' if " " in a else a for a in cmd[1:])
     if sv.windows_run_as == "system":

@@ -1,13 +1,17 @@
-# google-docs-backup settings. Everything tweakable lives here.
+# google-docs-backup settings - TEMPLATE.
+#
+# This file is the one in git. Your real settings live in config/config.yaml
+# (git-ignored); the first run creates it from this template automatically.
+# Edit config/config.yaml, not this file.
 
 paths:
   # rclone / pandoc programs. Leave empty (or wrong) and the next run looks them
   # up (bin folder, PATH, /opt/homebrew/bin, /usr/local/bin, /usr/bin, ...)
   # and writes what it found here.
-  rclone_exe: ./bin/rclone.exe
-  pandoc_exe: ./bin/pandoc.exe
+  rclone_exe: ''
+  pandoc_exe: ''
   bin: ./bin                     # where fetch-tools (Windows) downloads them to (git-ignored)
-  # Relative paths are relative to this file (the repo root).
+  # Relative paths are relative to the project folder (the one containing config/).
   # private/, logs/, backups/ and snapshots/ are all git-ignored.
   rclone_config: ./private/rclone.conf  # holds Google tokens - never commit
   backup_dir: ./backups                 # the live backup, one subfolder per remote
