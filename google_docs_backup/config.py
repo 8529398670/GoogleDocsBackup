@@ -91,7 +91,7 @@ class Config:
     upload_to_drive: bool = False
     backup_folder: str = "Backups"
     export_formats: list[str] = field(default_factory=lambda: ["docx", "xlsx", "pptx"])
-    exclude: list[str] = field(default_factory=lambda: ["/Backups/**"])
+    exclude: list[str] = field(default_factory=list)
     rclone: RcloneOpts = field(default_factory=RcloneOpts)
     markdown: MarkdownOpts = field(default_factory=MarkdownOpts)
     progress: str = "auto"

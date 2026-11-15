@@ -56,8 +56,11 @@ def export_filters(cfg: Config) -> list[str]:
     The old script mixed --include and --exclude; rclone matched '*.docx' before
     'Backups/**', so the Backups folder was re-exported into itself every week.
     """
+    # Always skip our own Drive folder (snapshots live there), anchored to the
+    # Drive root so other folders that happen to be called Backups still back up.
+    own = f"/{cfg.backup_folder.strip('/')}/**"
     rules: list[str] = []
-    for pat in cfg.exclude:
+    for pat in [own] + [p for p in cfg.exclude if p != own]:
         rules += ["--filter", f"- {pat}"]
     for ext in cfg.export_formats:
         rules += ["--filter", f"+ *.{ext}"]

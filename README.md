@@ -50,8 +50,9 @@ next to the package. Relative paths in it are relative to the file itself.
   `name_prefix`, `local_dir`. A second run on the same day replaces that
   day's snapshot. Old snapshots removed from Drive go to Drive's trash (30
   days). Only files matching `snapshot-DDMONYYYY.tar.gz` are ever pruned.
-- `exclude: [/Backups/**]`: the export skips each account's own `Backups`
-  folder, so snapshots never get backed up into themselves.
+- `exclude`: extra folders/files to skip. Each account's own `Backups/`
+  folder is always skipped automatically, so snapshots never get backed up
+  into themselves.
 - `upload_to_drive`: also mirror `backups/<remote>` file-by-file into Drive
   (the old behaviour, off by default).
 
