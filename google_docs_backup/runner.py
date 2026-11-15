@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 
 from rich.console import Console
@@ -13,7 +13,7 @@ from rich.progress import (BarColumn, Progress, ProgressColumn, SpinnerColumn,
 from rich.table import Table
 from rich.text import Text
 
-from . import convert, rclone, snapshot
+from . import cancel, convert, rclone, snapshot
 from .config import Config, Remote
 from .util import Log, RunLock, human_bytes, human_secs
 
@@ -119,6 +119,8 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
     dry = ["--dry-run"] if dry_run else []
     label = f"{r.name}" + (f" ({r.label})" if r.label else "")
     log(f"[{r.name}] --- start ---")
+    if not dry_run:  # half-written files from a run that was killed hard
+        convert.remove_partials(rstage, r.name, log)
 
     # 1. export native files from Drive into staging
     ov.start(r.name, "export")
@@ -197,7 +199,8 @@ def _summary_table(cfg: Config, rows: list[RemoteSummary], dry_run: bool) -> Tab
     for col in cols:
         tbl.add_column(col, justify="left" if col in ("remote", "status") else "right")
     for s in rows:
-        color = "green" if s.status == "ok" else ("yellow" if s.status.startswith("ok") else "red")
+        color = ("green" if s.status == "ok" else
+                 "yellow" if s.status.startswith("ok") or s.status == "cancelled" else "red")
         cells = [s.name, f"[{color}]{s.status}[/]",
                  f"{s.exported} ({human_bytes(s.exported_bytes)})"]
         if cfg.mirror_deletes:
@@ -267,6 +270,7 @@ def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
         return 2
 
     log = Log(cfg.paths.log)
+    cancelled = False
     try:
         with RunLock(cfg.paths.log.parent / "backup.lock"):
             log("--- backup start ---" + (" (dry run)" if dry_run else ""))
@@ -279,27 +283,61 @@ def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
                 def one(r: Remote) -> RemoteSummary:
                     try:
                         s = _backup_remote(cfg, r, log, progress, dry_run, ov)
+                    except cancel.Cancelled:
+                        log(f"[{r.name}] cancelled")
+                        s = RemoteSummary(r.name, status="cancelled")
                     except Exception as e:  # one account crashing must not stop the others
                         log(f"[{r.name}] CRASHED: {type(e).__name__}: {e}")
                         s = RemoteSummary(r.name, status=f"crashed ({type(e).__name__})")
                     ov.finish(r.name, ok=s.status.startswith("ok"))
                     return s
 
-                with ThreadPoolExecutor(max_workers=workers) as pool:
-                    rows = list(pool.map(one, remotes))  # keeps config order
+                pool = ThreadPoolExecutor(max_workers=workers)
+                futs = [pool.submit(one, r) for r in remotes]
+                try:
+                    # wait in short slices so Ctrl-C / window close is handled at once
+                    while not all(f.done() for f in futs):
+                        wait(futs, timeout=0.25)
+                except KeyboardInterrupt:
+                    cancelled = True
+                    cancel.CANCEL.set()
+                    progress.update(ov.task, detail="[yellow]cancelling: stopping rclone / pandoc...[/]")
+                    n = cancel.stop_children()
+                    log(f"cancel requested: stopped {n} running rclone/pandoc process(es)")
+                    while True:  # workers unwind quickly now; extra Ctrl-Cs just hurry them
+                        try:
+                            wait(futs)
+                            break
+                        except KeyboardInterrupt:
+                            cancel.stop_children(grace=0)
+                finally:
+                    pool.shutdown(wait=True, cancel_futures=True)
+                if cancelled and not dry_run:  # safety net for anything a child left mid-write
+                    for r in remotes:
+                        convert.remove_partials(cfg.paths.backup_dir / r.name, r.name, log)
+                rows = [f.result() if not f.cancelled() else RemoteSummary(r.name, status="cancelled")
+                        for f, r in zip(futs, remotes)]
                 ok = sum(1 for s in rows if s.status.startswith("ok"))
-                progress.update(ov.task, detail=f"{ok}/{len(rows)} accounts ok"
-                                + (f" · [red]{len(rows) - ok} failed[/]" if ok < len(rows) else ""))
+                if cancelled:
+                    progress.update(ov.task, detail=f"[yellow]cancelled[/] · {ok}/{len(rows)} accounts finished")
+                else:
+                    progress.update(ov.task, detail=f"{ok}/{len(rows)} accounts ok"
+                                    + (f" · [red]{len(rows) - ok} failed[/]" if ok < len(rows) else ""))
             for s in rows:
                 log(f"[{s.name}] summary: {s.status}; exported {s.exported}; removed {s.removed}; md {s.converted} "
                     f"(+{s.up_to_date} up to date, {s.pandoc_failed} failed); "
                     f"mirrored {s.uploaded}; snapshot {s.snapshot}; {human_secs(s.seconds)}")
-            log("--- backup done ---")
+            log("--- backup cancelled ---" if cancelled else "--- backup done ---")
     except RuntimeError as e:
         console.print(f"[red]{e}[/]")
         return 3
 
     console.print(_summary_table(cfg, rows, dry_run))
+    if cancelled:
+        console.print("[yellow]Backup cancelled.[/] Accounts marked ok finished completely; the others "
+                      "stopped where they were and catch up on the next run. Nothing half-written "
+                      "was left behind.")
+        return 130
     failed = any(not s.status.startswith("ok") for s in rows)
     pandoc_errors = any(s.pandoc_failed for s in rows)
     return 1 if failed else (4 if pandoc_errors else 0)

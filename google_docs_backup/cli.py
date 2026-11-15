@@ -22,7 +22,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from . import __version__, auth, runner, service, tools
+from . import __version__, auth, cancel, runner, service, tools
 from .config import load
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -65,8 +65,8 @@ def status(cfg, console: Console) -> int:
     console.print("[bold]last run:[/]")
     for l in ours[-30:]:
         console.print(f"  {l}", markup=False, highlight=False)
-    if starts and not any("--- backup done ---" in l for l in last):
-        console.print("  [yellow](no 'backup done' yet - still running or it stopped early)[/]")
+    if starts and not any("--- backup done ---" in l or "--- backup cancelled ---" in l for l in last):
+        console.print("  [yellow](no 'backup done' yet - still running, or it was killed hard)[/]")
     return 0
 
 
@@ -100,6 +100,16 @@ def main(argv: list[str] | None = None) -> int:
         except (AttributeError, ValueError):
             pass
 
+    cancel.install()  # Ctrl-C / window close / SIGTERM -> clean cancel; children die with us
+    try:
+        return _main(argv)
+    except KeyboardInterrupt:  # cancelled outside a backup run (startup, auth, ...)
+        cancel.stop_children(grace=1)
+        print("\ncancelled.", file=sys.stderr)
+        return 130
+
+
+def _main(argv: list[str] | None) -> int:
     a = build_parser().parse_args(argv)
     if a.cmd is None:
         a.cmd, a.remote, a.dry_run, a.no_snapshot = "run", None, False, False

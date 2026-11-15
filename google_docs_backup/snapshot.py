@@ -10,7 +10,7 @@ from pathlib import Path
 
 from rich.progress import Progress, TaskID
 
-from . import rclone
+from . import cancel, rclone
 from .config import Config
 from .util import Log, human_bytes
 
@@ -81,12 +81,20 @@ def make_tarball(src: Path, out: Path, arc_root: str, fmt: str, level: int,
     out.parent.mkdir(parents=True, exist_ok=True)
     part = out.with_name(out.name + ".part")
     done = 0
-    with tarfile.open(_long(part), mode, **kw) as tar:
-        for full, rel in files:
-            tar.add(full, arcname=f"{arc_root}/{rel.replace(os.sep, '/')}", recursive=False)
-            done += os.path.getsize(full)
-            progress.update(task, completed=done)
-    os.replace(_long(part), _long(out))
+    try:
+        with tarfile.open(_long(part), mode, **kw) as tar:
+            for full, rel in files:
+                cancel.check()
+                tar.add(full, arcname=f"{arc_root}/{rel.replace(os.sep, '/')}", recursive=False)
+                done += os.path.getsize(full)
+                progress.update(task, completed=done)
+        os.replace(_long(part), _long(out))
+    except BaseException:  # cancelled, disk full, ... never leave a half tar behind
+        try:
+            os.remove(_long(part))
+        except OSError:
+            pass
+        raise
     return out.stat().st_size
 
 
@@ -109,6 +117,11 @@ def run(cfg: Config, remote: str, log: Log, progress: Progress, task: TaskID,
         progress.update(task, total=1, completed=1,
                         detail=f"would create {res.name} -> {dest}, keep newest {s.keep_drive}")
         return res
+
+    # 0. a hard kill can leave a half-written .part behind; it's never a valid snapshot
+    for stale in local_dir.glob(f"{s.name_prefix}*.part"):
+        stale.unlink(missing_ok=True)
+        log(f"[{remote}] removed leftover partial snapshot: {stale.name}")
 
     # 1. pack
     out = local_dir / res.name

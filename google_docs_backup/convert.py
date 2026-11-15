@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import os
 import shutil
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from rich.progress import Progress, TaskID
 
+from . import cancel
 from .config import Config
 from .util import Log
 
@@ -24,6 +24,18 @@ class ConvertResult:
 def _long(p: Path) -> str:
     s = str(p.resolve())
     return "\\\\?\\" + s if os.name == "nt" and not s.startswith("\\\\?\\") else s
+
+
+def remove_partials(root: Path, tag: str, log: Log) -> int:
+    """Delete *.partial files a killed rclone / pandoc left behind (never valid data)."""
+    n = 0
+    for dp, _, fns in os.walk(_long(root)):
+        for fn in fns:
+            if fn.endswith(".partial"):
+                os.remove(os.path.join(dp, fn))
+                log(f"[{tag}] removed leftover partial file: {fn}")
+                n += 1
+    return n
 
 
 def prune_orphans(cfg: Config, root: Path, tag: str, log: Log, dry_run: bool) -> int:
@@ -58,6 +70,7 @@ def _needs(docx: Path, md: Path, only_if_newer: bool) -> bool:
 
 
 def _convert_one(cfg: Config, docx: Path) -> tuple[Path, bool, str]:
+    cancel.check()
     m = cfg.markdown
     media_name = docx.stem + m.media_suffix
     media = docx.parent / media_name
@@ -66,6 +79,10 @@ def _convert_one(cfg: Config, docx: Path) -> tuple[Path, bool, str]:
 
     # Run inside the doc's folder with a relative media dir, so image links in the
     # .md are relative and still work after the tree is uploaded or downloaded.
+    # Write to .md.partial and rename at the end: a killed pandoc must never leave a
+    # truncated .md that looks newer than its .docx (it would never be redone).
+    md = docx.with_suffix(".md")
+    tmp = docx.with_name(md.name + ".partial")
     cmd = [
         str(cfg.pandoc_exe),
         "-f", "docx",
@@ -74,13 +91,17 @@ def _convert_one(cfg: Config, docx: Path) -> tuple[Path, bool, str]:
         f"--extract-media={media_name}",
         *m.extra_args,
         docx.name,
-        "-o", docx.with_suffix(".md").name,
+        "-o", tmp.name,
     ]
-    proc = subprocess.run(cmd, cwd=docx.parent, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace")
-    if proc.returncode == 0 and media.is_dir() and not any(media.iterdir()):
+    proc = cancel.run(cmd, cwd=docx.parent, text=True, encoding="utf-8", errors="replace")
+    if cancel.CANCEL.is_set() or proc.returncode != 0:
+        tmp.unlink(missing_ok=True)
+        cancel.check()
+        return docx, False, (proc.stderr or "").strip()
+    os.replace(tmp, md)
+    if media.is_dir() and not any(media.iterdir()):
         media.rmdir()
-    return docx, proc.returncode == 0, proc.stderr.strip()
+    return docx, True, (proc.stderr or "").strip()
 
 
 def convert_tree(cfg: Config, root: Path, tag: str, log: Log, progress: Progress,
@@ -99,10 +120,11 @@ def convert_tree(cfg: Config, root: Path, tag: str, log: Log, progress: Progress
         res.converted = 0
         return res
 
-    with ThreadPoolExecutor(max_workers=max(1, cfg.markdown.workers)) as pool:
+    pool = ThreadPoolExecutor(max_workers=max(1, cfg.markdown.workers))
+    try:
         futures = [pool.submit(_convert_one, cfg, d) for d in todo]
         for i, fut in enumerate(as_completed(futures), 1):
-            docx, ok, err = fut.result()
+            docx, ok, err = fut.result()  # raises Cancelled once a cancel is requested
             if ok:
                 res.converted += 1
                 log(f"[{tag}] md: {docx.name}")
@@ -111,4 +133,9 @@ def convert_tree(cfg: Config, root: Path, tag: str, log: Log, progress: Progress
                 log(f"[{tag}] PANDOC FAILED: {docx}" + (f" ({err.splitlines()[-1]})" if err else ""))
             progress.update(task, completed=i,
                             detail=f"{i}/{len(todo)} docs · {len(res.failed)} failed")
+    except cancel.Cancelled:
+        progress.update(task, detail=f"[yellow]cancelled[/] after {res.converted} docs")
+        raise
+    finally:
+        pool.shutdown(wait=True, cancel_futures=True)  # don't start queued docs
     return res

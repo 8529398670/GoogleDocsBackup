@@ -53,6 +53,17 @@ google-docs-backup auth gdrive2         # add / re-authorize an account
 Needs Python 3.10+, `rclone` and `pandoc`. On macOS/Linux install them with
 `brew install rclone pandoc` or `sudo apt install rclone pandoc`.
 
+## Cancelling
+
+Ctrl-C (or closing the window, or stopping the scheduled task) cancels cleanly:
+rclone and pandoc are stopped, nothing half-written is left (`.md` files and
+snapshots are written to a temp name and renamed only when complete), the
+summary shows which accounts finished, and the log ends with
+`--- backup cancelled ---` (exit code 130). Accounts that were cut off just
+catch up on the next run. On Windows, rclone/pandoc also die with the backup
+if it's killed hard (Task Manager); leftover partial files from that are
+cleaned up at the start of the next run.
+
 ## Settings: `config.yaml`
 
 Everything tweakable is in `config.yaml` in the repo root. It's found via

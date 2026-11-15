@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 
 from rich.progress import Progress, TaskID
 
+from . import cancel
 from .config import Config
 from .util import Log, human_bytes, human_secs
 
@@ -51,8 +52,8 @@ def base_args(cfg: Config) -> list[str]:
 
 def simple(cfg: Config, args: list[str]) -> subprocess.CompletedProcess:
     """A plain rclone call (lsf, deletefile, ...) with captured text output."""
-    return subprocess.run([str(cfg.rclone_exe), "--config", str(cfg.paths.rclone_config), *args],
-                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+    return cancel.run([str(cfg.rclone_exe), "--config", str(cfg.paths.rclone_config), *args],
+                      text=True, encoding="utf-8", errors="replace")
 
 
 def export_filters(cfg: Config) -> list[str]:
@@ -96,7 +97,7 @@ def _detail(stats: dict, finished: bool = False) -> str:
 
 def run(cfg: Config, args: list[str], log: Log, progress: Progress, task: TaskID) -> RcloneResult:
     cmd = base_args(cfg) + args
-    proc = subprocess.Popen(
+    proc = cancel.popen(
         cmd,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
@@ -104,6 +105,13 @@ def run(cfg: Config, args: list[str], log: Log, progress: Progress, task: TaskID
         encoding="utf-8",
         errors="replace",
     )
+    try:
+        return _follow(proc, log, progress, task)
+    finally:
+        cancel.forget(proc)
+
+
+def _follow(proc: subprocess.Popen, log: Log, progress: Progress, task: TaskID) -> RcloneResult:
     last: dict = {}
     assert proc.stderr is not None
     for line in proc.stderr:
@@ -129,5 +137,8 @@ def run(cfg: Config, args: list[str], log: Log, progress: Progress, task: TaskID
         log(f"{level}: {obj}: {msg}" if obj else f"{level}: {msg}")
 
     code = proc.wait()
+    if cancel.CANCEL.is_set():
+        progress.update(task, detail="[yellow]cancelled[/]")
+        raise cancel.Cancelled()
     progress.update(task, total=1, completed=1, detail=_detail(last, finished=True))
     return RcloneResult(code=code, stats=last)
