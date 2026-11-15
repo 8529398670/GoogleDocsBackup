@@ -90,6 +90,7 @@ class Config:
     paths: Paths
     remotes: list[Remote]
     parallel_remotes: int = 0
+    mirror_deletes: bool = True
     upload_to_drive: bool = False
     backup_folder: str = "Backups"
     export_formats: list[str] = field(default_factory=lambda: ["docx", "xlsx", "pptx"])

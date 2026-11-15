@@ -25,6 +25,10 @@ class RcloneResult:
         return int(self.stats.get("bytes", 0))
 
     @property
+    def deletes(self) -> int:
+        return int(self.stats.get("deletes", 0))
+
+    @property
     def errors(self) -> int:
         return int(self.stats.get("errors", 0))
 
@@ -76,6 +80,8 @@ def _detail(stats: dict, finished: bool = False) -> str:
         parts.append(f"{stats['listed']} listed")
     parts.append(f"{stats.get('checks', 0)} unchanged")
     parts.append(f"{stats.get('transfers', 0)} copied ({human_bytes(stats.get('bytes', 0))})")
+    if stats.get("deletes"):
+        parts.append(f"{stats['deletes']} removed")
     in_flight = stats.get("transferring") or []
     if in_flight and not finished:
         name = str(in_flight[0].get("name", ""))

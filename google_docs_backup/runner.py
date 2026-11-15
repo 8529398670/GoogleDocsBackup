@@ -1,4 +1,4 @@
-"""The backup itself, per remote: export -> markdown -> (mirror) -> snapshot."""
+"""The backup itself, per remote: export (sync) -> markdown -> (mirror) -> snapshot."""
 from __future__ import annotations
 
 import os
@@ -24,6 +24,7 @@ class RemoteSummary:
     status: str = "ok"
     exported: int = 0
     exported_bytes: int = 0
+    removed: int = 0          # files gone from Drive, removed locally (incl. orphan .md)
     converted: int = 0
     up_to_date: int = 0
     pandoc_failed: int = 0
@@ -122,12 +123,16 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
     # 1. export native files from Drive into staging
     ov.start(r.name, "export")
     t = progress.add_task(f"{label} export", total=None, detail="listing...")
+    # sync = mirror Drive (moves/deletes follow). Our own .md/._media files are
+    # excluded by the filters, and rclone never deletes excluded files.
     res = rclone.run(cfg, [
-        "copy", f"{r.name}:", str(rstage),
+        "sync" if cfg.mirror_deletes else "copy", f"{r.name}:", str(rstage),
         "--drive-export-formats", ",".join(cfg.export_formats),
         *rclone.export_filters(cfg), *dry,
     ], log, progress, t)
-    s.exported, s.exported_bytes = res.transfers, res.bytes
+    s.exported, s.exported_bytes, s.removed = res.transfers, res.bytes, res.deletes
+    if res.deletes:
+        log(f"[{r.name}] {res.deletes} file(s) no longer on Drive, removed locally")
     if res.code != 0:
         progress.update(t, detail=f"[red]failed (exit {res.code})[/]")
         log(f"[{r.name}] export failed, skipping")
@@ -140,6 +145,11 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
     if cfg.markdown.enabled:
         ov.start(r.name, "markdown")
         t = progress.add_task(f"{label} markdown", total=None, detail="scanning...")
+        if cfg.mirror_deletes:  # .md / ._media of docs that moved or were deleted
+            orphans = convert.prune_orphans(cfg, rstage, r.name, log, dry_run)
+            s.removed += orphans
+            if orphans:
+                log(f"[{r.name}] {orphans} orphan md/media {'would be ' if dry_run else ''}removed")
         cr = convert.convert_tree(cfg, rstage, r.name, log, progress, t, dry_run)
         s.converted, s.up_to_date, s.pandoc_failed = cr.converted, cr.skipped, len(cr.failed)
         if cr.failed:
@@ -175,7 +185,10 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
 def _summary_table(cfg: Config, rows: list[RemoteSummary], dry_run: bool) -> Table:
     tbl = Table(title="Backup summary" + (" (dry run)" if dry_run else ""),
                 caption=f"backup folder: {cfg.paths.backup_dir}")
-    cols = ["remote", "status", "exported", "md converted", "md up to date", "pandoc failed"]
+    cols = ["remote", "status", "exported"]
+    if cfg.mirror_deletes:
+        cols.append("removed")
+    cols += ["md converted", "md up to date", "pandoc failed"]
     if cfg.upload_to_drive:
         cols.append("mirrored")
     if cfg.snapshot.enabled:
@@ -186,8 +199,10 @@ def _summary_table(cfg: Config, rows: list[RemoteSummary], dry_run: bool) -> Tab
     for s in rows:
         color = "green" if s.status == "ok" else ("yellow" if s.status.startswith("ok") else "red")
         cells = [s.name, f"[{color}]{s.status}[/]",
-                 f"{s.exported} ({human_bytes(s.exported_bytes)})",
-                 str(s.converted), str(s.up_to_date), str(s.pandoc_failed)]
+                 f"{s.exported} ({human_bytes(s.exported_bytes)})"]
+        if cfg.mirror_deletes:
+            cells.append(str(s.removed))
+        cells += [str(s.converted), str(s.up_to_date), str(s.pandoc_failed)]
         if cfg.upload_to_drive:
             cells.append(f"{s.uploaded} ({human_bytes(s.uploaded_bytes)})")
         if cfg.snapshot.enabled:
@@ -276,7 +291,7 @@ def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
                 progress.update(ov.task, detail=f"{ok}/{len(rows)} accounts ok"
                                 + (f" · [red]{len(rows) - ok} failed[/]" if ok < len(rows) else ""))
             for s in rows:
-                log(f"[{s.name}] summary: {s.status}; exported {s.exported}; md {s.converted} "
+                log(f"[{s.name}] summary: {s.status}; exported {s.exported}; removed {s.removed}; md {s.converted} "
                     f"(+{s.up_to_date} up to date, {s.pandoc_failed} failed); "
                     f"mirrored {s.uploaded}; snapshot {s.snapshot}; {human_secs(s.seconds)}")
             log("--- backup done ---")

@@ -1,6 +1,7 @@
 """docx -> markdown with pandoc, images as ordinary local files (never base64)."""
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,6 +19,36 @@ class ConvertResult:
     converted: int = 0
     skipped: int = 0
     failed: list[Path] = field(default_factory=list)
+
+
+def _long(p: Path) -> str:
+    s = str(p.resolve())
+    return "\\\\?\\" + s if os.name == "nt" and not s.startswith("\\\\?\\") else s
+
+
+def prune_orphans(cfg: Config, root: Path, tag: str, log: Log, dry_run: bool) -> int:
+    """Remove .md files and ._media folders whose .docx is gone (moved/renamed/deleted
+    on Drive), so the markdown follows the docs. Returns how many were removed."""
+    suffix = cfg.markdown.media_suffix
+    removed = 0
+    for dp, dns, fns in os.walk(_long(root)):
+        names = set(fns)
+        for fn in fns:
+            if fn.lower().endswith(".md") and fn[:-3] + ".docx" not in names:
+                removed += 1
+                if not dry_run:
+                    os.remove(os.path.join(dp, fn))
+                log(f"[{tag}] orphan md {'would be ' if dry_run else ''}removed: "
+                    f"{os.path.relpath(os.path.join(dp, fn), _long(root))}")
+        for dn in list(dns):
+            if dn.endswith(suffix) and dn[:-len(suffix)] + ".docx" not in names:
+                dns.remove(dn)  # don't walk into it
+                removed += 1
+                if not dry_run:
+                    shutil.rmtree(os.path.join(dp, dn), ignore_errors=True)
+                log(f"[{tag}] orphan media {'would be ' if dry_run else ''}removed: "
+                    f"{os.path.relpath(os.path.join(dp, dn), _long(root))}")
+    return removed
 
 
 def _needs(docx: Path, md: Path, only_if_newer: bool) -> bool:

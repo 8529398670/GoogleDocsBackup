@@ -11,6 +11,23 @@ Each run exports every account into `backups/<remote>/`, packs it into a
 (`<remote>:Backups/`), and keeps the newest 3 snapshots there and in
 `snapshots/<remote>/`.
 
+## Moving, renaming and deleting on Drive
+
+`backups/<remote>/` is an exact mirror of Drive (`mirror_deletes: true`):
+
+| On Drive you... | Locally |
+|---|---|
+| move or rename a doc | it moves/renames locally too; its `.md` and `._media` follow |
+| delete a doc or folder | it's removed locally |
+| reorganize everything | the local tree is reorganized to match |
+
+History lives in the snapshots: anything that disappears is still in the
+newest 3. If Drive can't be listed completely (network drop, API error),
+rclone skips all deletions that run, so a bad connection can't empty the
+local copy. Files you put in `backups/` yourself (not `.docx`/`.xlsx`/`.pptx`)
+are never touched. `mirror_deletes: false` goes back to add-only (moves then
+leave duplicates).
+
 ## Run it
 
 Double-click `run.bat` (Windows) or `run.command` (macOS), or:

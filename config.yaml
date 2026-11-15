@@ -41,6 +41,12 @@ upload_to_drive: false
 # Google native files are exported as these formats (and only these are copied).
 export_formats: [docx, xlsx, pptx]
 
+# Keep backup_dir an exact mirror of Drive: files moved, renamed or deleted on
+# Drive are moved/removed locally too, and their .md / ._media follow. History
+# lives in the snapshots. rclone skips all deletions if any listing error
+# happens. false = only ever add files (old behaviour; moves leave duplicates).
+mirror_deletes: true
+
 # Extra rclone filter patterns to skip during the export. Each account's own
 # Backups/ folder (where snapshots go) is always skipped automatically.
 # A leading "/" anchors to the Drive root, e.g. ["/Old Stuff/**", "*.tmp.docx"]
