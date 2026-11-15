@@ -3,6 +3,10 @@
 # rclone config / Google tokens - never commit
 private/
 logs/
+snapshots/
+*.egg-info/
+build/
+dist/
 rclone.conf
 *.conf
 *token*

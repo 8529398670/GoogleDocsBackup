@@ -52,6 +52,16 @@ class ToolsOpts:
 
 
 @dataclass
+class SnapshotOpts:
+    enabled: bool = True
+    name_prefix: str = "snapshot-"
+    local_dir: Path = Path("snapshots")
+    keep_local: int = 5
+    keep_drive: int = 5
+    compress_level: int = 6
+
+
+@dataclass
 class AuthOpts:
     task_prefix: str = "JunoRcloneAuth-"
     timeout_seconds: int = 90
@@ -68,6 +78,7 @@ class Config:
     rclone: RcloneOpts = field(default_factory=RcloneOpts)
     markdown: MarkdownOpts = field(default_factory=MarkdownOpts)
     progress: str = "auto"
+    snapshot: SnapshotOpts = field(default_factory=SnapshotOpts)
     tools: ToolsOpts = field(default_factory=ToolsOpts)
     auth: AuthOpts = field(default_factory=AuthOpts)
 
@@ -167,6 +178,7 @@ def load(path: Path) -> Config:
     sub = {
         "rclone": RcloneOpts,
         "markdown": MarkdownOpts,
+        "snapshot": SnapshotOpts,
         "tools": ToolsOpts,
         "auth": AuthOpts,
     }
@@ -175,6 +187,12 @@ def load(path: Path) -> Config:
 
     if cfg.progress not in ("auto", "on", "off"):
         raise ValueError("config.yaml: progress must be auto, on or off")
+    s = cfg.snapshot
+    s.local_dir = (base / Path(s.local_dir)).resolve()
+    if s.keep_local < 0 or s.keep_drive < 1:
+        raise ValueError("config.yaml: snapshot.keep_local must be >= 0 and keep_drive >= 1")
+    if not 0 <= s.compress_level <= 9:
+        raise ValueError("config.yaml: snapshot.compress_level must be 0..9")
     cfg.source = path
 
     # rclone / pandoc: use the configured path if it works; otherwise look the

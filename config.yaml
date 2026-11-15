@@ -1,5 +1,4 @@
-# Drive backup settings. Everything tweakable lives here.
-# Paths match the live install on the HP EliteBook.
+# drive-backup settings. Everything tweakable lives here.
 
 paths:
   # rclone / pandoc programs. Leave empty (or wrong) and the next run looks them
@@ -8,21 +7,33 @@ paths:
   rclone_exe: 'C:\Users\juno\agent\bin\rclone.exe'
   pandoc_exe: 'C:\Users\juno\agent\bin\pandoc.exe'
   bin: C:\Users\juno\agent\bin   # where fetch-tools (Windows) downloads them to
-  # Relative paths are relative to this file, so ../x = <repo>/x.
-  # private/, logs/ and backups/ are all git-ignored.
-  rclone_config: ../private/rclone.conf  # holds Google tokens - never commit
-  backup_dir: ../backups                 # the backup itself, one subfolder per remote
-  log: ../logs/backup.log
+  # Relative paths are relative to this file (the repo root).
+  # private/, logs/, backups/ and snapshots/ are all git-ignored.
+  rclone_config: ./private/rclone.conf  # holds Google tokens - never commit
+  backup_dir: ./backups                 # the live backup, one subfolder per remote
+  log: ./logs/backup.log
 
 # One rclone remote per Google account. Set enabled: false to skip one.
 remotes:
   - {name: gdrive,  label: banjo.kazooie.2955@gmail.com, enabled: true}
   - {name: gdrive2, label: cerbus.collin@gmail.com,      enabled: true}
 
-# Also copy backup_dir/<remote> up into that account's Drive (the old behaviour).
-upload_to_drive: false
-# Folder inside each account's Drive that receives the upload (if enabled).
+# Folder inside each account's Drive that receives snapshots (and the mirror below).
 backup_folder: Backups
+
+# After each run, pack backup_dir/<remote> into one tar.gz and upload it to
+# <remote>:<backup_folder>/snapshot-14NOV2026.tar.gz. A second run on the same
+# day replaces that day's snapshot.
+snapshot:
+  enabled: true
+  name_prefix: snapshot-
+  local_dir: ./snapshots   # local copies, one subfolder per remote
+  keep_local: 5            # newest N kept here; older ones deleted (0 = keep none)
+  keep_drive: 5            # newest N kept in Drive; older ones go to Drive's trash
+  compress_level: 6        # gzip 1 (fast) .. 9 (smallest)
+
+# Also mirror backup_dir/<remote> file-by-file into Drive (the old behaviour).
+upload_to_drive: false
 
 # Google native files are exported as these formats (and only these are copied).
 export_formats: [docx, xlsx, pptx]

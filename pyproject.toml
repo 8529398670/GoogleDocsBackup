@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drive-backup"
+dynamic = ["version"]
+description = "Back up Google Drive accounts with rclone + pandoc, with tar.gz snapshots"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+
+[project.scripts]
+drive-backup = "drive_backup.cli:main"
+
+[tool.setuptools]
+packages = ["drive_backup"]
+
+[tool.setuptools.dynamic]
+version = { attr = "drive_backup.__version__" }

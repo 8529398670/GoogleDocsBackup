@@ -44,6 +44,12 @@ def base_args(cfg: Config) -> list[str]:
     ]
 
 
+def simple(cfg: Config, args: list[str]) -> subprocess.CompletedProcess:
+    """A plain rclone call (lsf, deletefile, ...) with captured text output."""
+    return subprocess.run([str(cfg.rclone_exe), "--config", str(cfg.paths.rclone_config), *args],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
+
+
 def export_filters(cfg: Config) -> list[str]:
     """Ordered filter rules: excludes FIRST, then the wanted types, then drop everything else.
 

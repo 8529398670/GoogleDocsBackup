@@ -6,6 +6,7 @@ browser. Needs an elevated (admin) prompt.
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import time
@@ -19,7 +20,15 @@ URL_RE = re.compile(r"http://127\.0\.0\.1:\d+/auth\?state=\S+")
 
 
 def start(cfg: Config, remote: str, console: Console) -> int:
-    log = cfg.paths.rclone_config.parent / f"auth-{remote}.log"
+    if os.name != "nt":  # macOS / Linux: rclone's own interactive flow is enough
+        cfg.paths.rclone_config.parent.mkdir(parents=True, exist_ok=True)
+        exists = subprocess.run([str(cfg.rclone_exe), "--config", str(cfg.paths.rclone_config),
+                                 "listremotes"], capture_output=True, text=True).stdout
+        args = (["config", "reconnect", f"{remote}:"] if f"{remote}:" in exists.split()
+                else ["config", "create", remote, "drive", "scope", "drive"])
+        return subprocess.call([str(cfg.rclone_exe), "--config", str(cfg.paths.rclone_config), *args])
+
+    log =cfg.paths.rclone_config.parent / f"auth-{remote}.log"
     task = f"{cfg.auth.task_prefix}{remote}"
     log.unlink(missing_ok=True)
 
