@@ -5,7 +5,7 @@ import os
 import re
 import tarfile
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import datetime
 from pathlib import Path
 
 from rich.progress import Progress, TaskID
@@ -17,17 +17,20 @@ from .util import Log, human_bytes
 MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 
 
-def snapshot_name(prefix: str, day: date) -> str:
-    """snapshot-14NOV2026.tar.gz (English month, independent of the PC's locale)."""
-    return f"{prefix}{day.day:02d}{MONTHS[day.month - 1]}{day.year}.tar.gz"
+def snapshot_name(prefix: str, when: datetime) -> str:
+    """snapshot-14NOV2026-23-47.tar.gz (English month, independent of the PC's locale)."""
+    return (f"{prefix}{when.day:02d}{MONTHS[when.month - 1]}{when.year}"
+            f"-{when.hour:02d}-{when.minute:02d}.tar.gz")
 
 
-def parse_snapshot_date(prefix: str, name: str) -> date | None:
-    m = re.fullmatch(re.escape(prefix) + r"(\d{2})([A-Z]{3})(\d{4})\.tar\.gz", name)
+def parse_snapshot_date(prefix: str, name: str) -> datetime | None:
+    """Accepts snapshot-14NOV2026-23-47.tar.gz and the older snapshot-14NOV2026.tar.gz."""
+    m = re.fullmatch(re.escape(prefix) + r"(\d{2})([A-Z]{3})(\d{4})(?:-(\d{2})-(\d{2}))?\.tar\.gz", name)
     if not m or m.group(2) not in MONTHS:
         return None
     try:
-        return date(int(m.group(3)), MONTHS.index(m.group(2)) + 1, int(m.group(1)))
+        return datetime(int(m.group(3)), MONTHS.index(m.group(2)) + 1, int(m.group(1)),
+                        int(m.group(4) or 0), int(m.group(5) or 0))
     except ValueError:
         return None
 
@@ -87,9 +90,9 @@ def _list_drive(cfg: Config, remote: str) -> tuple[int, list[str]]:
 
 
 def run(cfg: Config, remote: str, log: Log, progress: Progress, task: TaskID,
-        dry_run: bool, today: date | None = None) -> SnapshotResult:
+        dry_run: bool, now: datetime | None = None) -> SnapshotResult:
     s = cfg.snapshot
-    res = SnapshotResult(name=snapshot_name(s.name_prefix, today or date.today()))
+    res = SnapshotResult(name=snapshot_name(s.name_prefix, now or datetime.now()))
     src = cfg.paths.backup_dir / remote
     local_dir = s.local_dir / remote
     dest = f"{remote}:{cfg.backup_folder}/{res.name}"

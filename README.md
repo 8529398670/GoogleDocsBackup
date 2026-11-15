@@ -7,7 +7,7 @@
 - Google Slides -> `.pptx`
 
 Each run exports every account into `backups/<remote>/`, packs it into a
-`snapshot-14NOV2026.tar.gz`, uploads that to the account's own Drive
+`snapshot-14NOV2026-23-47.tar.gz`, uploads that to the account's own Drive
 (`<remote>:Backups/`), and keeps the newest 3 snapshots there and in
 `snapshots/<remote>/`.
 
@@ -47,9 +47,10 @@ next to the package. Relative paths in it are relative to the file itself.
   writes the paths back into `config.yaml`.
 - `remotes`: one entry per Google account (`enabled: false` skips one).
 - `snapshot`: `enabled`, `keep_drive`, `keep_local`, `compress_level`,
-  `name_prefix`, `local_dir`. A second run on the same day replaces that
-  day's snapshot. Old snapshots removed from Drive go to Drive's trash (30
-  days). Only files matching `snapshot-DDMONYYYY.tar.gz` are ever pruned.
+  `name_prefix`, `local_dir`. Names carry the local date and time
+  (`snapshot-14NOV2026-23-47.tar.gz`), so every run keeps its own snapshot.
+  Old snapshots removed from Drive go to Drive's trash (30 days). Only files
+  matching `snapshot-DDMONYYYY[-HH-MM].tar.gz` are ever pruned.
 - `exclude`: extra folders/files to skip. Each account's own `Backups/`
   folder is always skipped automatically, so snapshots never get backed up
   into themselves.
