@@ -8,7 +8,7 @@
 
 Each run exports every account into `backups/<remote>/`, packs it into a
 `snapshot-14NOV2026.tar.gz`, uploads that to the account's own Drive
-(`<remote>:Backups/`), and keeps the newest 5 snapshots there and in
+(`<remote>:Backups/`), and keeps the newest 3 snapshots there and in
 `snapshots/<remote>/`.
 
 ## Run it

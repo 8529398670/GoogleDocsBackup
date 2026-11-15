@@ -56,8 +56,8 @@ class SnapshotOpts:
     enabled: bool = True
     name_prefix: str = "snapshot-"
     local_dir: Path = Path("snapshots")
-    keep_local: int = 5
-    keep_drive: int = 5
+    keep_local: int = 3
+    keep_drive: int = 3
     compress_level: int = 6
 
 
