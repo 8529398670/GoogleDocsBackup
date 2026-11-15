@@ -70,6 +70,10 @@ python python/backup.py auth gdrive2           # re-authorize (admin prompt)
 
 Differences from the PowerShell version:
 
+- **Backs up to a local folder**, `backups/` in this repo (one subfolder per
+  remote; git-ignored), instead of uploading into Drive. Set
+  `upload_to_drive: true` in `config.yaml` to also upload as before.
+
 - **Fixes the self-backup bug.** The PowerShell script mixes `--include` and
   `--exclude`, and rclone matches `*.docx` before `Backups/**`, so each run
   re-exported the `Backups` folder into itself (`Backups/Backups/...`).
