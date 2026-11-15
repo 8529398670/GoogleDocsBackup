@@ -129,12 +129,12 @@ def _in_venv() -> bool:
 
 def _win_install(cfg: Config, console: Console) -> int:
     if cfg.service.windows_run_as == "system" and not _in_venv():
-        console.print("[red]Run this from the repo's .venv[/] (install.bat does that). SYSTEM can't "
+        console.print("[red]Run this from the repo's .venv[/] (install-service.bat does that). SYSTEM can't "
                       "see packages installed for your user, so the task would fail.")
         return 2
     if cfg.service.windows_run_as == "system" and not _is_admin():
         console.print("[red]Installing as SYSTEM needs an admin terminal.[/]\n"
-                      "Run install.bat (it asks for admin), or set service.windows_run_as: user "
+                      "Run install-service.bat (it asks for admin), or set service.windows_run_as: user "
                       "in config.yaml (then it only runs while you're logged in).")
         return 2
     with tempfile.TemporaryDirectory() as tmp:
@@ -298,7 +298,7 @@ WantedBy=timers.target
 
 def _linux_install(cfg: Config, console: Console) -> int:
     if cfg.service.linux_scope == "system" and os.geteuid() != 0:
-        console.print("[red]linux_scope: system needs root[/] - run: sudo ./install.sh")
+        console.print("[red]linux_scope: system needs root[/] - run: sudo ./install-service.sh")
         return 2
     d = _systemd_dir(cfg)
     d.mkdir(parents=True, exist_ok=True)

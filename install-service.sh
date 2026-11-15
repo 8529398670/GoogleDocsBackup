@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 # macOS / Debian / Linux installer: .venv + package + scheduled run
 # (launchd agent on macOS, systemd timer on Linux).
-#   ./install.sh             install / update
-#   ./install.sh uninstall   remove the scheduled run
+#   ./install-service.sh             install / update
+#   ./install-service.sh uninstall   remove the scheduled run
 # With service.linux_scope: system in config.yaml, run it with sudo.
 set -e
 cd "$(dirname "$0")"

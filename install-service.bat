@@ -1,7 +1,7 @@
 @echo off
 rem Windows installer: .venv + package + scheduled task (Task Scheduler).
-rem   install.bat             install / update
-rem   install.bat uninstall   remove the scheduled task
+rem   install-service.bat             install / update
+rem   install-service.bat uninstall   remove the scheduled task
 cd /d "%~dp0"
 
 rem A SYSTEM task needs admin - re-launch elevated if we aren't.

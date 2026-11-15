@@ -63,7 +63,7 @@ next to the package. Relative paths in it are relative to the file itself.
 | `config.yaml` | all settings |
 | `pyproject.toml` | package metadata, the `google-docs-backup` command |
 | `run.bat`, `run.sh`, `run.command` | double-click / one-word launchers |
-| `install.bat`, `install.sh` | set up `.venv` + the scheduled service |
+| `install-service.bat`, `install-service.sh` | set up `.venv` + the scheduled service |
 | `gitPushUpdate.bat` | commits everything as the next commit number and pushes |
 | `backups/` | live backup, one folder per account (git-ignored) |
 | `snapshots/` | local tar.gz snapshots (git-ignored) |
@@ -74,19 +74,19 @@ next to the package. Relative paths in it are relative to the file itself.
 ## Install as a scheduled service
 
 ```
-install.bat              # Windows (asks for admin)
-./install.sh             # macOS / Debian / Linux
+install-service.bat              # Windows (asks for admin)
+./install-service.sh             # macOS / Debian / Linux
 ```
 
 Both create `.venv`, install the package into it, and register the weekly run
 with the OS's own scheduler. Run them again after changing `service:` in
-`config.yaml`; `install.bat uninstall` / `./install.sh uninstall` removes it.
+`config.yaml`; `install-service.bat uninstall` / `./install-service.sh uninstall` removes it.
 
 | OS | Scheduler | Runs while logged out? |
 |---|---|---|
 | Windows | Task Scheduler task `google_docs_backup`, as SYSTEM | yes (`windows_run_as: user`: no, but no admin needed) |
 | macOS | launchd agent `~/Library/LaunchAgents/local.google_docs_backup.plist` | no; a missed run starts after wake |
-| Linux | systemd timer `google_docs_backup.timer` (user units) | only with `sudo loginctl enable-linger $USER`, or set `linux_scope: system` and run `sudo ./install.sh` |
+| Linux | systemd timer `google_docs_backup.timer` (user units) | only with `sudo loginctl enable-linger $USER`, or set `linux_scope: system` and run `sudo ./install-service.sh` |
 
 Missed runs (PC off at the scheduled time) start at the next chance on all
 three. Directly:
