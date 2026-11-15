@@ -19,6 +19,9 @@ remotes:
   - {name: gdrive,  enabled: true}
   - {name: gdrive2, enabled: true}
 
+# How many accounts to back up at the same time. 0 = all at once, 1 = one by one.
+parallel_remotes: 0
+
 # After each run, pack backup_dir/<remote> into one tar.gz and upload it to
 # <remote>:Backups/snapshot-14NOV2026-23-47.tar.gz (date + local time, so
 # every run gets its own snapshot).

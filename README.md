@@ -46,6 +46,9 @@ next to the package. Relative paths in it are relative to the file itself.
   next run finds the tools (bin folder, PATH, Homebrew, /usr/bin, ...) and
   writes the paths back into `config.yaml`.
 - `remotes`: one entry per Google account (`enabled: false` skips one).
+- `parallel_remotes`: how many accounts back up at the same time (`0` = all
+  at once, the default; `1` = one by one). One account failing doesn't stop
+  the others.
 - `snapshot`: `enabled`, `keep_drive`, `keep_local`, `compress_level`,
   `name_prefix`, `local_dir`. Names carry the local date and time
   (`snapshot-14NOV2026-23-47.tar.gz`), so every run keeps its own snapshot.

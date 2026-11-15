@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from rich.console import Console
@@ -193,10 +194,19 @@ def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
     try:
         with RunLock(cfg.paths.log.parent / "backup.lock"):
             log("--- backup start ---" + (" (dry run)" if dry_run else ""))
-            rows: list[RemoteSummary] = []
+            workers = len(remotes) if cfg.parallel_remotes == 0 else min(cfg.parallel_remotes, len(remotes))
+            if workers > 1:
+                log(f"backing up {len(remotes)} accounts, {workers} at a time")
             with make_progress(cfg, console) as progress:
-                for r in remotes:
-                    rows.append(_backup_remote(cfg, r, log, progress, dry_run))
+                def one(r: Remote) -> RemoteSummary:
+                    try:
+                        return _backup_remote(cfg, r, log, progress, dry_run)
+                    except Exception as e:  # one account crashing must not stop the others
+                        log(f"[{r.name}] CRASHED: {type(e).__name__}: {e}")
+                        return RemoteSummary(r.name, status=f"crashed ({type(e).__name__})")
+
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    rows = list(pool.map(one, remotes))  # keeps config order
             for s in rows:
                 log(f"[{s.name}] summary: {s.status}; exported {s.exported}; md {s.converted} "
                     f"(+{s.up_to_date} up to date, {s.pandoc_failed} failed); "

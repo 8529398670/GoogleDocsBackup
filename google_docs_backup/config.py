@@ -88,6 +88,7 @@ class AuthOpts:
 class Config:
     paths: Paths
     remotes: list[Remote]
+    parallel_remotes: int = 0
     upload_to_drive: bool = False
     backup_folder: str = "Backups"
     export_formats: list[str] = field(default_factory=lambda: ["docx", "xlsx", "pptx"])
@@ -212,6 +213,8 @@ def load(path: Path) -> Config:
 
     if cfg.progress not in ("auto", "on", "off"):
         raise ValueError("config.yaml: progress must be auto, on or off")
+    if cfg.parallel_remotes < 0:
+        raise ValueError("config.yaml: parallel_remotes must be 0 (all) or more")
     s = cfg.snapshot
     s.local_dir = (base / Path(s.local_dir)).resolve()
     if s.keep_local < 0 or s.keep_drive < 1:
