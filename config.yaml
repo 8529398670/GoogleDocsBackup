@@ -19,11 +19,8 @@ remotes:
   - {name: gdrive,  enabled: true}
   - {name: gdrive2, enabled: true}
 
-# Folder inside each account's Drive that receives snapshots (and the mirror below).
-backup_folder: Backups
-
 # After each run, pack backup_dir/<remote> into one tar.gz and upload it to
-# <remote>:<backup_folder>/snapshot-14NOV2026.tar.gz. A second run on the same
+# <remote>:Backups/snapshot-14NOV2026.tar.gz. A second run on the same
 # day replaces that day's snapshot.
 snapshot:
   enabled: true
