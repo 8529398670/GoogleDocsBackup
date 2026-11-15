@@ -58,6 +58,7 @@ class SnapshotOpts:
     local_dir: Path = Path("snapshots")
     keep_local: int = 3
     keep_drive: int = 3
+    format: str = "tar"
     compress_level: int = 6
 
 
@@ -219,6 +220,8 @@ def load(path: Path) -> Config:
     s.local_dir = (base / Path(s.local_dir)).resolve()
     if s.keep_local < 0 or s.keep_drive < 1:
         raise ValueError("config.yaml: snapshot.keep_local must be >= 0 and keep_drive >= 1")
+    if s.format not in ("tar", "tar.gz"):
+        raise ValueError("config.yaml: snapshot.format must be tar or tar.gz")
     if not 0 <= s.compress_level <= 9:
         raise ValueError("config.yaml: snapshot.compress_level must be 0..9")
     sv = cfg.service

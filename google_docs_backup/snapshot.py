@@ -1,4 +1,4 @@
-"""tar.gz snapshots of a remote's backup folder: create, upload, keep the newest N."""
+"""tar snapshots of a remote's backup folder: create, upload, keep the newest N."""
 from __future__ import annotations
 
 import os
@@ -17,15 +17,19 @@ from .util import Log, human_bytes
 MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
 
 
-def snapshot_name(prefix: str, when: datetime) -> str:
-    """snapshot-14NOV2026-23-47.tar.gz (English month, independent of the PC's locale)."""
+FORMATS = ("tar", "tar.gz")
+
+
+def snapshot_name(prefix: str, when: datetime, fmt: str = "tar") -> str:
+    """snapshot-14NOV2026-23-47.tar (English month, independent of the PC's locale)."""
     return (f"{prefix}{when.day:02d}{MONTHS[when.month - 1]}{when.year}"
-            f"-{when.hour:02d}-{when.minute:02d}.tar.gz")
+            f"-{when.hour:02d}-{when.minute:02d}.{fmt}")
 
 
 def parse_snapshot_date(prefix: str, name: str) -> datetime | None:
-    """Accepts snapshot-14NOV2026-23-47.tar.gz and the older snapshot-14NOV2026.tar.gz."""
-    m = re.fullmatch(re.escape(prefix) + r"(\d{2})([A-Z]{3})(\d{4})(?:-(\d{2})-(\d{2}))?\.tar\.gz", name)
+    """Accepts .tar and .tar.gz, with or without the -HH-MM time (older snapshots)."""
+    m = re.fullmatch(re.escape(prefix) + r"(\d{2})([A-Z]{3})(\d{4})(?:-(\d{2})-(\d{2}))?\.tar(?:\.gz)?",
+                     name)
     if not m or m.group(2) not in MONTHS:
         return None
     try:
@@ -65,8 +69,11 @@ class SnapshotResult:
     pruned_local: list[str] = field(default_factory=list)
 
 
-def make_tarball(src: Path, out: Path, arc_root: str, level: int,
+def make_tarball(src: Path, out: Path, arc_root: str, fmt: str, level: int,
                  progress: Progress, task: TaskID) -> int:
+    # Plain tar by default: the backup is mostly .docx/.pptx/.xlsx/.png, which are
+    # already compressed - gzip measured ~15x slower for ~4% smaller.
+    mode, kw = ("w:gz", {"compresslevel": level}) if fmt == "tar.gz" else ("w", {})
     files = list(_files(src))
     total = sum(os.path.getsize(f) for f, _ in files)
     progress.update(task, total=max(total, 1), completed=0,
@@ -74,7 +81,7 @@ def make_tarball(src: Path, out: Path, arc_root: str, level: int,
     out.parent.mkdir(parents=True, exist_ok=True)
     part = out.with_name(out.name + ".part")
     done = 0
-    with tarfile.open(_long(part), "w:gz", compresslevel=level) as tar:
+    with tarfile.open(_long(part), mode, **kw) as tar:
         for full, rel in files:
             tar.add(full, arcname=f"{arc_root}/{rel.replace(os.sep, '/')}", recursive=False)
             done += os.path.getsize(full)
@@ -84,15 +91,16 @@ def make_tarball(src: Path, out: Path, arc_root: str, level: int,
 
 
 def _list_drive(cfg: Config, remote: str) -> tuple[int, list[str]]:
+    pre = cfg.snapshot.name_prefix
     p = rclone.simple(cfg, ["lsf", f"{remote}:{cfg.backup_folder}", "--files-only",
-                            "--include", f"{cfg.snapshot.name_prefix}*.tar.gz"])
+                            "--include", f"{pre}*.tar", "--include", f"{pre}*.tar.gz"])
     return p.returncode, [l.strip() for l in p.stdout.splitlines() if l.strip()]
 
 
 def run(cfg: Config, remote: str, log: Log, progress: Progress, task: TaskID,
         dry_run: bool, now: datetime | None = None) -> SnapshotResult:
     s = cfg.snapshot
-    res = SnapshotResult(name=snapshot_name(s.name_prefix, now or datetime.now()))
+    res = SnapshotResult(name=snapshot_name(s.name_prefix, now or datetime.now(), s.format))
     src = cfg.paths.backup_dir / remote
     local_dir = s.local_dir / remote
     dest = f"{remote}:{cfg.backup_folder}/{res.name}"
@@ -105,7 +113,7 @@ def run(cfg: Config, remote: str, log: Log, progress: Progress, task: TaskID,
     # 1. pack
     out = local_dir / res.name
     try:
-        res.bytes = make_tarball(src, out, remote, s.compress_level, progress, task)
+        res.bytes = make_tarball(src, out, remote, s.format, s.compress_level, progress, task)
     except OSError as e:
         res.status = "snapshot failed"
         log(f"[{remote}] snapshot FAILED to pack: {e}")
@@ -138,7 +146,7 @@ def run(cfg: Config, remote: str, log: Log, progress: Progress, task: TaskID,
                 log(f"[{remote}] snapshot prune FAILED in Drive: {old}: {d.stderr.strip()}")
 
     # 4. keep the newest N locally
-    local = [p.name for p in local_dir.glob(f"{s.name_prefix}*.tar.gz")]
+    local = [p.name for p in local_dir.glob(f"{s.name_prefix}*.tar*")]
     for old in to_prune(s.name_prefix, local, s.keep_local):
         try:
             (local_dir / old).unlink()

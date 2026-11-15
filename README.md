@@ -7,7 +7,7 @@
 - Google Slides -> `.pptx`
 
 Each run exports every account into `backups/<remote>/`, packs it into a
-`snapshot-14NOV2026-23-47.tar.gz`, uploads that to the account's own Drive
+`snapshot-14NOV2026-23-47.tar`, uploads that to the account's own Drive
 (`<remote>:Backups/`), and keeps the newest 3 snapshots there and in
 `snapshots/<remote>/`.
 
@@ -27,7 +27,7 @@ pip install -e .
 google-docs-backup                      # same as: google-docs-backup run
 google-docs-backup run --remote gdrive  # one account
 google-docs-backup run --dry-run        # show what would happen, change nothing
-google-docs-backup run --no-snapshot    # skip the tar.gz this time
+google-docs-backup run --no-snapshot    # skip the snapshot this time
 google-docs-backup status               # is rclone running? how did the last run go?
 google-docs-backup fetch-tools          # Windows: download rclone + pandoc
 google-docs-backup auth gdrive2         # add / re-authorize an account
@@ -49,11 +49,11 @@ next to the package. Relative paths in it are relative to the file itself.
 - `parallel_remotes`: how many accounts back up at the same time (`0` = all
   at once, the default; `1` = one by one). One account failing doesn't stop
   the others.
-- `snapshot`: `enabled`, `keep_drive`, `keep_local`, `compress_level`,
+- `snapshot`: `enabled`, `keep_drive`, `keep_local`, `format` (`tar` or `tar.gz`), `compress_level`,
   `name_prefix`, `local_dir`. Names carry the local date and time
-  (`snapshot-14NOV2026-23-47.tar.gz`), so every run keeps its own snapshot.
+  (`snapshot-14NOV2026-23-47.tar`), so every run keeps its own snapshot.
   Old snapshots removed from Drive go to Drive's trash (30 days). Only files
-  matching `snapshot-DDMONYYYY[-HH-MM].tar.gz` are ever pruned.
+  matching `snapshot-DDMONYYYY[-HH-MM].tar[.gz]` are ever pruned. Plain `tar` is the default: the backup is already-compressed Office files, so gzip was ~15x slower for ~4% smaller.
 - `exclude`: extra folders/files to skip. Each account's own `Backups/`
   folder is always skipped automatically, so snapshots never get backed up
   into themselves.
@@ -71,7 +71,7 @@ next to the package. Relative paths in it are relative to the file itself.
 | `install-service.bat`, `install-service.sh`, `install-service.command` | set up `.venv` + the scheduled service |
 | `gitPushUpdate.bat` | commits everything as the next commit number and pushes |
 | `backups/` | live backup, one folder per account (git-ignored) |
-| `snapshots/` | local tar.gz snapshots (git-ignored) |
+| `snapshots/` | local snapshots (git-ignored) |
 | `private/rclone.conf` | Google tokens (git-ignored, never commit) |
 | `bin/` | rclone + pandoc on Windows (git-ignored) |
 | `logs/backup.log` | run log (git-ignored) |

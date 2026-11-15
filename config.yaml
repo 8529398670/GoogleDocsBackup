@@ -22,8 +22,8 @@ remotes:
 # How many accounts to back up at the same time. 0 = all at once, 1 = one by one.
 parallel_remotes: 0
 
-# After each run, pack backup_dir/<remote> into one tar.gz and upload it to
-# <remote>:Backups/snapshot-14NOV2026-23-47.tar.gz (date + local time, so
+# After each run, pack backup_dir/<remote> into one archive and upload it to
+# <remote>:Backups/snapshot-14NOV2026-23-47.tar (date + local time, so
 # every run gets its own snapshot).
 snapshot:
   enabled: true
@@ -31,7 +31,9 @@ snapshot:
   local_dir: ./snapshots   # local copies, one subfolder per remote
   keep_local: 3            # newest N kept here; older ones deleted (0 = keep none)
   keep_drive: 3            # newest N kept in Drive; older ones go to Drive's trash
-  compress_level: 6        # gzip 1 (fast) .. 9 (smallest)
+  format: tar              # tar (fast) | tar.gz. The backup is mostly .docx/.pptx/.png,
+                           # already compressed: gzip measured ~15x slower for ~4% smaller.
+  compress_level: 6        # tar.gz only: 1 (fast) .. 9 (smallest)
 
 # Also mirror backup_dir/<remote> file-by-file into Drive (the old behaviour).
 upload_to_drive: false
