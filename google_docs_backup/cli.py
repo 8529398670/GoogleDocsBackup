@@ -85,10 +85,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("fetch-tools", help="download rclone + pandoc (Windows)")
     p_auth = sub.add_parser("auth", help="sign in Drive accounts (optionally with your own OAuth client)")
     p_auth.add_argument("remote", nargs="*", help="which remotes (default: all enabled)")
-    p_auth.add_argument("--client-json", nargs="?", type=Path, const=Path("~/Downloads"), default=None,
+    p_auth.add_argument("--client-json", nargs="?", type=Path, const=Path("auto"), default=None,
                         metavar="FILE_OR_DIR",
                         help="use your own Google OAuth client from its downloaded JSON "
-                             "(default: newest client_secret_*.json in Downloads)")
+                             "(default: newest client_secret_*.json in ./config, then Downloads)")
     p_svc = sub.add_parser("service", help="scheduled runs: install / uninstall / status / show")
     p_svc.add_argument("action", choices=["install", "uninstall", "status", "show"],
                        help="show = print the task/plist/unit that install would write")

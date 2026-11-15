@@ -3,7 +3,7 @@ Google OAuth client (so they use your own API quota, not rclone's shared one).
 
     google-docs-backup auth                         # re-sign-in every enabled account
     google-docs-backup auth gdrive2                 # just one
-    google-docs-backup auth --client-json           # newest client_secret_*.json in Downloads
+    google-docs-backup auth --client-json           # newest client_secret_*.json in ./config, then Downloads
     google-docs-backup auth --client-json FILE      # a specific file
 
 The client ID/secret go only into rclone.conf (private/, git-ignored) and are
@@ -47,9 +47,11 @@ def start(cfg: Config, remotes: list[str], client_json: Path | None, console: Co
 
     client: list[str] = []
     if client_json is not None:
-        path = find_client_json(client_json)
+        places = ([cfg.source.resolve().parent / "config", Path("~/Downloads")]
+                  if str(client_json) == "auto" else [client_json])
+        path = next((p for p in map(find_client_json, places) if p), None)
         if not path:
-            console.print(f"[red]no client_secret_*.json found in {client_json}[/]")
+            console.print(f"[red]no client_secret_*.json found in {', '.join(map(str, places))}[/]")
             return 2
         try:
             cid, secret = _read_client(path)

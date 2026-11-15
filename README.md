@@ -49,7 +49,7 @@ google-docs-backup status               # is rclone running? how did the last ru
 google-docs-backup fetch-tools          # Windows: download rclone + pandoc
 google-docs-backup auth gdrive2         # add / re-authorize an account
 google-docs-backup auth --client-json   # switch all accounts to your own Google OAuth client
-                                        # (newest client_secret_*.json in Downloads)
+                                        # (newest client_secret_*.json in ./config, then Downloads)
 ```
 
 Needs Python 3.10+, `rclone` and `pandoc`. On macOS/Linux install them with

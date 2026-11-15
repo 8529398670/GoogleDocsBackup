@@ -8,6 +8,7 @@ snapshots/
 build/
 dist/
 rclone.conf
+client_secret*.json
 *.conf
 *token*
 *.json
