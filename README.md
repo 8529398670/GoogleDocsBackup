@@ -1,4 +1,4 @@
-﻿# GoogleDocsBackup
+# GoogleDocsBackup
 
 `google-docs-backup` backs up Google Drive accounts with rclone and pandoc:
 
@@ -196,5 +196,14 @@ google-docs-backup service install | uninstall | status | show
 
 ## Exit codes
 
-0 ok Â· 1 an account failed (export or snapshot) Â· 2 setup/config error Â·
-3 another run is in progress Â· 4 only pandoc errors
+The number the program returns when it finishes, so scripts and the scheduler
+can tell how a run went:
+
+| Code | Meaning |
+|---|---|
+| 0 | everything ok |
+| 1 | an account failed (export or snapshot) |
+| 2 | setup or config error |
+| 3 | another run is already in progress |
+| 4 | only some markdown conversions failed |
+| 130 | cancelled (Ctrl-C, window closed, task stopped) |
