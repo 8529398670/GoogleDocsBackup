@@ -28,6 +28,56 @@ local copy. Files you put in `backups/` yourself (not `.docx`/`.xlsx`/`.pptx`)
 are never touched. `mirror_deletes: false` goes back to add-only (moves then
 leave duplicates).
 
+## Set up Google API access (your own OAuth client)
+
+Do this once. Without it, rclone uses its **shared** Google client, which is
+heavily rate-limited (and being retired): big Drives crawl or stall, and the
+log fills with `403 ... Quota exceeded ... rateLimitExceeded`. Your own client
+gets its own quota and is free.
+
+**1. Google Cloud Console** - <https://console.cloud.google.com/>, signed in
+with any of your Google accounts:
+
+1. Pick a project (top bar), or create one, e.g. `google-docs-backup`.
+2. **APIs & Services → Library →** search **Google Drive API → Enable**.
+3. **Google Auth Platform** (search for it, or *APIs & Services → OAuth
+   consent screen*):
+   - **Branding**: app name (e.g. `google-docs-backup`) and your email.
+   - **Audience**: user type **External**, then **Publish app** so the
+     status is **In production**. (In *Testing*, sign-ins expire every 7 days.)
+4. **Clients → Create client** → application type **Desktop app**, name it
+   `google-docs-backup` → **Create**.
+5. In the "OAuth client created" dialog click **Download JSON** *before*
+   closing it (the secret is only shown once), and save the file
+   (`client_secret_....json`) into this project's **`config/`** folder.
+   It's git-ignored; never commit it.
+
+**2. Use it for every account** - from the project folder:
+
+```
+python -m google_docs_backup auth --client-json
+```
+
+It finds the newest `client_secret_*.json` in `config/` (then Downloads),
+writes the client ID/secret into `private/rclone.conf` (git-ignored, never
+printed), and signs in each enabled account in turn:
+
+- Answer rclone's questions with **Enter** (the defaults: replace token =
+  yes, use web browser = yes, Shared Drive = no).
+- A browser opens: **pick the Google account that remote backs up** - check
+  the name at the top before allowing.
+- "Google hasn't verified this app" is expected for a personal app: click
+  **Advanced → Go to google-docs-backup (unsafe) → Continue/Allow**.
+
+It ends with `done: gdrive, gdrive2 signed in`.
+
+**Adding another Google account later:** add it to `remotes:` in
+`config/config.yaml` (e.g. `- {name: gdrive3, enabled: true}`), then
+`python -m google_docs_backup auth gdrive3 --client-json`.
+
+**If an account starts failing** with `invalid_grant` / token expired, or you
+revoked access: `python -m google_docs_backup auth <name>` signs it in again.
+
 ## Run it
 
 Double-click `run.bat` (Windows) or `run.command` (macOS), or:
