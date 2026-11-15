@@ -86,7 +86,3 @@ tools:
   rclone_url: https://downloads.rclone.org/rclone-current-windows-amd64.zip
   pandoc_release_api: https://api.github.com/repos/jgm/pandoc/releases/latest
   pandoc_asset_glob: pandoc-*-windows-x86_64.zip
-
-auth:
-  task_prefix: google_docs_backup_auth-
-  timeout_seconds: 90

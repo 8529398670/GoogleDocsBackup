@@ -81,12 +81,6 @@ class ServiceOpts:
 
 
 @dataclass
-class AuthOpts:
-    task_prefix: str = "google_docs_backup_auth-"
-    timeout_seconds: int = 90
-
-
-@dataclass
 class Config:
     paths: Paths
     remotes: list[Remote]
@@ -102,7 +96,6 @@ class Config:
     snapshot: SnapshotOpts = field(default_factory=SnapshotOpts)
     service: ServiceOpts = field(default_factory=ServiceOpts)
     tools: ToolsOpts = field(default_factory=ToolsOpts)
-    auth: AuthOpts = field(default_factory=AuthOpts)
 
     source: Path | None = None  # the config.yaml this came from (not a yaml key)
     exes: dict[str, Path] = field(default_factory=dict)  # resolved tool paths
@@ -209,7 +202,6 @@ def load(path: Path) -> Config:
         "snapshot": SnapshotOpts,
         "service": ServiceOpts,
         "tools": ToolsOpts,
-        "auth": AuthOpts,
     }
     kwargs = {k: _build(cls, raw.pop(k, None), k) for k, cls in sub.items()}
     cfg = _build(Config, {**raw, **kwargs, "paths": paths, "remotes": remotes}, "top level")
