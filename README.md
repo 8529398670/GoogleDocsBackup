@@ -63,7 +63,7 @@ next to the package. Relative paths in it are relative to the file itself.
 | `config.yaml` | all settings |
 | `pyproject.toml` | package metadata, the `google-docs-backup` command |
 | `run.bat`, `run.sh`, `run.command` | double-click / one-word launchers |
-| `install-service.bat`, `install-service.sh` | set up `.venv` + the scheduled service |
+| `install-service.bat`, `install-service.sh`, `install-service.command` | set up `.venv` + the scheduled service |
 | `gitPushUpdate.bat` | commits everything as the next commit number and pushes |
 | `backups/` | live backup, one folder per account (git-ignored) |
 | `snapshots/` | local tar.gz snapshots (git-ignored) |
@@ -77,6 +77,9 @@ next to the package. Relative paths in it are relative to the file itself.
 install-service.bat              # Windows (asks for admin)
 ./install-service.sh             # macOS / Debian / Linux
 ```
+
+On macOS you can also double-click `install-service.command` in Finder.
+(`.command` files open in Terminal; `.sh` files would open in a text editor.)
 
 Both create `.venv`, install the package into it, and register the weekly run
 with the OS's own scheduler. Run them again after changing `service:` in
