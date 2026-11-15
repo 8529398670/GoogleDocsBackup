@@ -1,3 +1,5 @@
+.claude/
+
 # rclone config / Google tokens - never commit
 rclone.conf
 *.conf

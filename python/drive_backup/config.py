@@ -18,7 +18,7 @@ class Remote:
 class Paths:
     bin: Path
     rclone_config: Path
-    stage: Path
+    backup_dir: Path
     log: Path
 
 
@@ -58,6 +58,7 @@ class AuthOpts:
 class Config:
     paths: Paths
     remotes: list[Remote]
+    upload_to_drive: bool = False
     backup_folder: str = "Backups"
     export_formats: list[str] = field(default_factory=lambda: ["docx", "xlsx", "pptx"])
     exclude: list[str] = field(default_factory=lambda: ["/Backups/**"])
@@ -91,7 +92,13 @@ def load(path: Path) -> Config:
         raise ValueError("config.yaml must define 'paths' and 'remotes'")
 
     p = raw.pop("paths")
-    paths = Paths(**{k: Path(p[k]) for k in ("bin", "rclone_config", "stage", "log")})
+    keys = ("bin", "rclone_config", "backup_dir", "log")
+    missing = [k for k in keys if k not in p]
+    if missing:
+        raise ValueError(f"config.yaml: paths is missing {', '.join(missing)}")
+    # relative paths are relative to the folder config.yaml lives in
+    base = path.resolve().parent
+    paths = Paths(**{k: (base / Path(p[k])).resolve() for k in keys})
     remotes = [_build(Remote, r, "remotes") for r in raw.pop("remotes")]
 
     sub = {

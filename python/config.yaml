@@ -4,7 +4,7 @@
 paths:
   bin: C:\Users\juno\agent\bin                          # rclone.exe + pandoc.exe
   rclone_config: C:\Users\juno\agent\rclone\rclone.conf # holds Google tokens - never commit
-  stage: C:\Users\juno\agent\drive-backup-stage         # local conversion area
+  backup_dir: ../backups      # the backup itself, one subfolder per remote (relative to this file = repo/backups)
   log: C:\Users\juno\agent\rclone\backup.log
 
 # One rclone remote per Google account. Set enabled: false to skip one.
@@ -12,7 +12,9 @@ remotes:
   - {name: gdrive,  label: banjo.kazooie.2955@gmail.com, enabled: true}
   - {name: gdrive2, label: cerbus.collin@gmail.com,      enabled: true}
 
-# Folder inside each account's Drive that receives the backup.
+# Also copy backup_dir/<remote> up into that account's Drive (the old behaviour).
+upload_to_drive: false
+# Folder inside each account's Drive that receives the upload (if enabled).
 backup_folder: Backups
 
 # Google native files are exported as these formats (and only these are copied).

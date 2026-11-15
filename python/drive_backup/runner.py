@@ -48,7 +48,7 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
                    dry_run: bool) -> RemoteSummary:
     s = RemoteSummary(r.name)
     t0 = time.monotonic()
-    rstage = cfg.paths.stage / r.name
+    rstage = cfg.paths.backup_dir / r.name
     rstage.mkdir(parents=True, exist_ok=True)
     dest = f"{r.name}:{cfg.backup_folder}"
     dry = ["--dry-run"] if dry_run else []
@@ -79,7 +79,10 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
         if cr.failed:
             s.status = "ok (pandoc errors)"
 
-    # 3. upload the portable copies back into that account's Drive
+    # 3. optionally upload the portable copies back into that account's Drive
+    if not cfg.upload_to_drive:
+        s.seconds = time.monotonic() - t0
+        return s
     t = progress.add_task(f"{label} upload", total=None, detail="comparing...")
     res = rclone.run(cfg, ["copy", str(rstage), dest, *dry], log, progress, t)
     s.uploaded, s.uploaded_bytes = res.transfers, res.bytes
@@ -94,18 +97,24 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
     return s
 
 
-def _summary_table(rows: list[RemoteSummary], dry_run: bool) -> Table:
-    tbl = Table(title="Backup summary" + (" (dry run)" if dry_run else ""))
-    for col in ("remote", "status", "exported", "md converted", "md up to date",
-                "pandoc failed", "uploaded", "time"):
+def _summary_table(cfg: Config, rows: list[RemoteSummary], dry_run: bool) -> Table:
+    tbl = Table(title="Backup summary" + (" (dry run)" if dry_run else ""),
+                caption=f"backup folder: {cfg.paths.backup_dir}")
+    cols = ["remote", "status", "exported", "md converted", "md up to date", "pandoc failed"]
+    if cfg.upload_to_drive:
+        cols.append("uploaded")
+    cols.append("time")
+    for col in cols:
         tbl.add_column(col, justify="left" if col in ("remote", "status") else "right")
     for s in rows:
         color = "green" if s.status == "ok" else ("yellow" if s.status.startswith("ok") else "red")
-        tbl.add_row(s.name, f"[{color}]{s.status}[/]",
-                    f"{s.exported} ({human_bytes(s.exported_bytes)})",
-                    str(s.converted), str(s.up_to_date), str(s.pandoc_failed),
-                    f"{s.uploaded} ({human_bytes(s.uploaded_bytes)})",
-                    human_secs(s.seconds))
+        cells = [s.name, f"[{color}]{s.status}[/]",
+                 f"{s.exported} ({human_bytes(s.exported_bytes)})",
+                 str(s.converted), str(s.up_to_date), str(s.pandoc_failed)]
+        if cfg.upload_to_drive:
+            cells.append(f"{s.uploaded} ({human_bytes(s.uploaded_bytes)})")
+        cells.append(human_secs(s.seconds))
+        tbl.add_row(*cells)
     return tbl
 
 
@@ -131,7 +140,7 @@ def _can_write_file(f) -> bool:
 
 
 def _check_access(cfg: Config, console: Console) -> bool:
-    bad = [str(d) for d in (cfg.paths.log.parent, cfg.paths.stage) if not _can_write_dir(d)]
+    bad = [str(d) for d in (cfg.paths.log.parent, cfg.paths.backup_dir) if not _can_write_dir(d)]
     bad += [str(f) for f in (cfg.paths.log, cfg.paths.rclone_config) if not _can_write_file(f)]
     if not bad:
         return True
@@ -178,7 +187,7 @@ def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
         console.print(f"[red]{e}[/]")
         return 3
 
-    console.print(_summary_table(rows, dry_run))
+    console.print(_summary_table(cfg, rows, dry_run))
     failed = any(not s.status.startswith("ok") for s in rows)
     pandoc_errors = any(s.pandoc_failed for s in rows)
     return 1 if failed else (4 if pandoc_errors else 0)
