@@ -66,7 +66,7 @@ WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", 
 
 @dataclass
 class ServiceOpts:
-    name: str = "DriveBackup"
+    name: str = "google_docs_backup"
     days: list[str] = field(default_factory=lambda: ["sunday"])
     time: str = "03:00"
     windows_run_as: str = "system"
@@ -80,7 +80,7 @@ class ServiceOpts:
 
 @dataclass
 class AuthOpts:
-    task_prefix: str = "DriveBackupAuth-"
+    task_prefix: str = "google_docs_backup_auth-"
     timeout_seconds: int = 90
 
 

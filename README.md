@@ -1,6 +1,6 @@
 # GoogleDocsBackup
 
-`drive-backup` backs up Google Drive accounts with rclone and pandoc:
+`google-docs-backup` backs up Google Drive accounts with rclone and pandoc:
 
 - Google Docs -> `.docx` + `.md` (images as ordinary local files, never base64)
 - Google Sheets -> `.xlsx`
@@ -17,20 +17,20 @@ Double-click `run.bat` (Windows) or `run.command` (macOS), or:
 
 ```
 ./run.sh                          # macOS / Linux
-python -m drive_backup            # anywhere, from the repo root
+python -m google_docs_backup            # anywhere, from the repo root
 ```
 
 Or install it as a command:
 
 ```
 pip install -e .
-drive-backup                      # same as: drive-backup run
-drive-backup run --remote gdrive  # one account
-drive-backup run --dry-run        # show what would happen, change nothing
-drive-backup run --no-snapshot    # skip the tar.gz this time
-drive-backup status               # is rclone running? how did the last run go?
-drive-backup fetch-tools          # Windows: download rclone + pandoc
-drive-backup auth gdrive2         # add / re-authorize an account
+google-docs-backup                      # same as: google-docs-backup run
+google-docs-backup run --remote gdrive  # one account
+google-docs-backup run --dry-run        # show what would happen, change nothing
+google-docs-backup run --no-snapshot    # skip the tar.gz this time
+google-docs-backup status               # is rclone running? how did the last run go?
+google-docs-backup fetch-tools          # Windows: download rclone + pandoc
+google-docs-backup auth gdrive2         # add / re-authorize an account
 ```
 
 Needs Python 3.10+, `rclone` and `pandoc`. On macOS/Linux install them with
@@ -39,7 +39,7 @@ Needs Python 3.10+, `rclone` and `pandoc`. On macOS/Linux install them with
 ## Settings: `config.yaml`
 
 Everything tweakable is in `config.yaml` in the repo root. It's found via
-`--config`, then `$DRIVE_BACKUP_CONFIG`, then `./config.yaml`, then the one
+`--config`, then `$GOOGLE_DOCS_BACKUP_CONFIG`, then `./config.yaml`, then the one
 next to the package. Relative paths in it are relative to the file itself.
 
 - `paths.rclone_exe` / `paths.pandoc_exe`: leave these empty or wrong and the
@@ -59,9 +59,9 @@ next to the package. Relative paths in it are relative to the file itself.
 
 | Path | What |
 |---|---|
-| `drive_backup/` | the Python package (`cli.py` is the entry point) |
+| `google_docs_backup/` | the Python package (`cli.py` is the entry point) |
 | `config.yaml` | all settings |
-| `pyproject.toml` | package metadata, the `drive-backup` command |
+| `pyproject.toml` | package metadata, the `google-docs-backup` command |
 | `run.bat`, `run.sh`, `run.command` | double-click / one-word launchers |
 | `install.bat`, `install.sh` | set up `.venv` + the scheduled service |
 | `gitPushUpdate.bat` | commits everything as the next commit number and pushes |
@@ -84,15 +84,15 @@ with the OS's own scheduler. Run them again after changing `service:` in
 
 | OS | Scheduler | Runs while logged out? |
 |---|---|---|
-| Windows | Task Scheduler task `DriveBackup`, as SYSTEM | yes (`windows_run_as: user`: no, but no admin needed) |
-| macOS | launchd agent `~/Library/LaunchAgents/local.drivebackup.plist` | no; a missed run starts after wake |
-| Linux | systemd timer `drivebackup.timer` (user units) | only with `sudo loginctl enable-linger $USER`, or set `linux_scope: system` and run `sudo ./install.sh` |
+| Windows | Task Scheduler task `google_docs_backup`, as SYSTEM | yes (`windows_run_as: user`: no, but no admin needed) |
+| macOS | launchd agent `~/Library/LaunchAgents/local.google_docs_backup.plist` | no; a missed run starts after wake |
+| Linux | systemd timer `google_docs_backup.timer` (user units) | only with `sudo loginctl enable-linger $USER`, or set `linux_scope: system` and run `sudo ./install.sh` |
 
 Missed runs (PC off at the scheduled time) start at the next chance on all
 three. Directly:
 
 ```
-drive-backup service install | uninstall | status | show
+google-docs-backup service install | uninstall | status | show
 ```
 
 `show` prints the task XML / plist / unit files without installing anything.

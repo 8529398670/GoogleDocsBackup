@@ -8,7 +8,7 @@ set -e
 cd "$(dirname "$0")"
 
 if [ "$1" = "uninstall" ]; then
-  exec .venv/bin/python -m drive_backup service uninstall
+  exec .venv/bin/python -m google_docs_backup service uninstall
 fi
 
 if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
@@ -21,7 +21,7 @@ if [ ! -x .venv/bin/python ]; then
   }
 fi
 
-echo "Installing drive-backup into .venv ..."
+echo "Installing google-docs-backup into .venv ..."
 .venv/bin/python -m pip install --disable-pip-version-check -q -e .
 
 for tool in rclone pandoc; do
@@ -30,6 +30,6 @@ for tool in rclone pandoc; do
   fi
 done
 
-.venv/bin/python -m drive_backup service install
+.venv/bin/python -m google_docs_backup service install
 echo
-.venv/bin/python -m drive_backup service status || true
+.venv/bin/python -m google_docs_backup service status || true

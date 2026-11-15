@@ -5,7 +5,7 @@ macOS   : launchd LaunchAgent  ~/Library/LaunchAgents/<label>.plist
 Linux   : systemd timer        ~/.config/systemd/user/  or  /etc/systemd/system/
 
 The scheduled command is always:
-    <this python> -m drive_backup --config <config.yaml> run
+    <this python> -m google_docs_backup --config <config.yaml> run
 run from the folder config.yaml lives in.
 """
 from __future__ import annotations
@@ -45,7 +45,7 @@ def _python() -> Path:
 
 
 def _command(cfg: Config) -> list[str]:
-    return [str(_python()), "-m", "drive_backup", "--config", str(cfg.source.resolve()), "run"]
+    return [str(_python()), "-m", "google_docs_backup", "--config", str(cfg.source.resolve()), "run"]
 
 
 def _workdir(cfg: Config) -> Path:
@@ -94,7 +94,7 @@ def windows_task_xml(cfg: Config) -> str:
         schedule = "<ScheduleByDay><DaysInterval>1</DaysInterval></ScheduleByDay>"
     return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo><Description>drive-backup: Google Drive backup ({escape(describe(cfg))})</Description></RegistrationInfo>
+  <RegistrationInfo><Description>google-docs-backup: Google Drive backup ({escape(describe(cfg))})</Description></RegistrationInfo>
   <Triggers>
     <CalendarTrigger>
       <StartBoundary>{start:%Y-%m-%dT%H:%M:%S}</StartBoundary>
@@ -272,7 +272,7 @@ def systemd_units(cfg: Config) -> dict[str, str]:
     if cfg.service.linux_scope == "system":
         user = f"User={os.environ.get('SUDO_USER') or getpass.getuser()}\n"
     service = f"""[Unit]
-Description=drive-backup: Google Drive backup
+Description=google-docs-backup: Google Drive backup
 Wants=network-online.target
 After=network-online.target
 
@@ -283,7 +283,7 @@ ExecStart={shlex.join(_command(cfg))}
 Nice=10
 """
     timer = f"""[Unit]
-Description=drive-backup schedule ({describe(cfg)})
+Description=google-docs-backup schedule ({describe(cfg)})
 
 [Timer]
 OnCalendar={on_cal}

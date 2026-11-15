@@ -178,7 +178,7 @@ def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
 
     for exe in (cfg.rclone_exe, cfg.pandoc_exe):
         if not exe.exists() and not (exe == cfg.pandoc_exe and not cfg.markdown.enabled):
-            hint = ("run: drive-backup fetch-tools" if os.name == "nt" else
+            hint = ("run: google-docs-backup fetch-tools" if os.name == "nt" else
                     "install it: brew install rclone pandoc  (macOS)  /  "
                     "sudo apt install rclone pandoc  (Debian/Ubuntu)")
             console.print(f"[red]missing {exe.name}[/] - {hint}")

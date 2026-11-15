@@ -1,13 +1,13 @@
-"""drive-backup: back up Google Drive accounts with rclone + pandoc.
+"""google-docs-backup: back up Google Drive accounts with rclone + pandoc.
 
-  drive-backup                      (same as: run)
-  drive-backup run [--remote NAME] [--dry-run] [--no-snapshot]
-  drive-backup status
-  drive-backup fetch-tools
-  drive-backup auth NAME
-  drive-backup service install|uninstall|status|show
+  google-docs-backup                      (same as: run)
+  google-docs-backup run [--remote NAME] [--dry-run] [--no-snapshot]
+  google-docs-backup status
+  google-docs-backup fetch-tools
+  google-docs-backup auth NAME
+  google-docs-backup service install|uninstall|status|show
 
-Also works as `python -m drive_backup ...`. Settings live in config.yaml
+Also works as `python -m google_docs_backup ...`. Settings live in config.yaml
 (see --config for how it is found).
 """
 from __future__ import annotations
@@ -29,8 +29,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def default_config() -> Path:
-    """$DRIVE_BACKUP_CONFIG, else ./config.yaml, else config.yaml next to the package."""
-    if env := os.environ.get("DRIVE_BACKUP_CONFIG"):
+    """$GOOGLE_DOCS_BACKUP_CONFIG, else ./config.yaml, else config.yaml next to the package."""
+    if env := os.environ.get("GOOGLE_DOCS_BACKUP_CONFIG"):
         return Path(env)
     here = Path.cwd() / "config.yaml"
     return here if here.exists() else REPO_ROOT / "config.yaml"
@@ -71,9 +71,9 @@ def status(cfg, console: Console) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    ap = argparse.ArgumentParser(prog="drive-backup", description="Google Drive backup")
+    ap = argparse.ArgumentParser(prog="google-docs-backup", description="Google Drive backup")
     ap.add_argument("--config", type=Path, default=None,
-                    help="config file (default: $DRIVE_BACKUP_CONFIG, ./config.yaml, "
+                    help="config file (default: $GOOGLE_DOCS_BACKUP_CONFIG, ./config.yaml, "
                          "or config.yaml in the repo root)")
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = ap.add_subparsers(dest="cmd")  # no command = run

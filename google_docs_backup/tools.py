@@ -17,7 +17,7 @@ from rich.progress import (BarColumn, DownloadColumn, Progress, TextColumn,
 
 from .config import Config
 
-UA = {"User-Agent": "drive-backup-fetch-tools"}
+UA = {"User-Agent": "google-docs-backup-fetch-tools"}
 
 
 def _download(url: str, dest: Path, console: Console) -> None:

@@ -17,7 +17,7 @@ if %errorlevel% neq 0 (
 )
 
 if /i "%~1"=="uninstall" (
-  .venv\Scripts\python.exe -m drive_backup service uninstall
+  .venv\Scripts\python.exe -m google_docs_backup service uninstall
   goto :done
 )
 
@@ -25,11 +25,11 @@ if not exist .venv\Scripts\python.exe (
   echo Creating .venv ...
   python -m venv .venv || goto :fail
 )
-echo Installing drive-backup into .venv ...
+echo Installing google-docs-backup into .venv ...
 .venv\Scripts\python.exe -m pip install --disable-pip-version-check -q -e . || goto :fail
-.venv\Scripts\python.exe -m drive_backup service install || goto :fail
+.venv\Scripts\python.exe -m google_docs_backup service install || goto :fail
 echo.
-.venv\Scripts\python.exe -m drive_backup service status
+.venv\Scripts\python.exe -m google_docs_backup service status
 
 :done
 echo.

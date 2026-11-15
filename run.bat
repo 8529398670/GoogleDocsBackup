@@ -1,4 +1,4 @@
 @echo off
 cd /d "%~dp0"
-python -m drive_backup
+python -m google_docs_backup
 pause
