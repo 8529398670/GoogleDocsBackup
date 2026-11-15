@@ -30,6 +30,7 @@ class RcloneOpts:
     log_level: str = "NOTICE"
     transfers: int = 4
     checkers: int = 8
+    fast_list: bool = True
     extra_args: list[str] = field(default_factory=list)
 
 

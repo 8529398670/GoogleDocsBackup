@@ -44,6 +44,7 @@ def base_args(cfg: Config) -> list[str]:
         "--stats-log-level", "NOTICE",
         "--transfers", str(o.transfers),
         "--checkers", str(o.checkers),
+        *(["--fast-list"] if o.fast_list else []),
         *o.extra_args,
     ]
 
