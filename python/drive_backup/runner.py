@@ -109,7 +109,48 @@ def _summary_table(rows: list[RemoteSummary], dry_run: bool) -> Table:
     return tbl
 
 
+def _can_write_dir(d) -> bool:
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        probe = d / ".write-test"
+        probe.write_text("x")
+        probe.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def _can_write_file(f) -> bool:
+    try:
+        with open(f, "r+b"):  # opens for writing without changing anything
+            return True
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+
+
+def _check_access(cfg: Config, console: Console) -> bool:
+    bad = [str(d) for d in (cfg.paths.log.parent, cfg.paths.stage) if not _can_write_dir(d)]
+    bad += [str(f) for f in (cfg.paths.log, cfg.paths.rclone_config) if not _can_write_file(f)]
+    if not bad:
+        return True
+    console.print("[red]no write access to:[/]")
+    for b in bad:
+        console.print(f"  {b}")
+    console.print(
+        "\nThe backup folders are writable only by SYSTEM / Administrators.\n"
+        "Either run this from a terminal opened with [bold]Run as administrator[/], or start\n"
+        "the scheduled task (runs as SYSTEM, no progress bars):\n"
+        "  [bold]schtasks /run /tn JunoDriveBackup[/]   then   python python/backup.py status"
+    )
+    return False
+
+
 def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
+    if not _check_access(cfg, console):
+        return 2
+
     for exe in (cfg.rclone_exe, cfg.pandoc_exe):
         if not exe.exists() and not (exe == cfg.pandoc_exe and not cfg.markdown.enabled):
             console.print(f"[red]missing {exe}[/] - run: python backup.py fetch-tools")
