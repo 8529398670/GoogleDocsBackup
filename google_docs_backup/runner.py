@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -55,8 +56,60 @@ def make_progress(cfg: Config, console: Console) -> Progress:
     )
 
 
+def steps_for(cfg: Config) -> list[str]:
+    """The steps each account goes through, in order."""
+    steps = ["export"]
+    if cfg.markdown.enabled:
+        steps.append("markdown")
+    if cfg.upload_to_drive:
+        steps.append("mirror")
+    if cfg.snapshot.enabled:
+        steps.append("snapshot")
+    return steps
+
+
+class Overall:
+    """The 'overall' bar: steps done across every account + what each one is doing."""
+
+    def __init__(self, progress: Progress, remotes: list[Remote], steps: list[str]):
+        self.progress, self.steps = progress, steps
+        self.names = [r.name for r in remotes]
+        self.done = {n: 0 for n in self.names}
+        self.now: dict[str, str] = {}
+        self.failed: set[str] = set()
+        self._lock = threading.Lock()
+        self.task = progress.add_task("overall", total=len(self.names) * len(steps), detail="starting...")
+
+    def _refresh(self) -> None:
+        finished = sum(1 for n in self.names if self.done[n] >= len(self.steps))
+        parts = [f"{finished}/{len(self.names)} accounts done"]
+        parts += [f"{n}: {self.now[n]}" for n in self.names if n in self.now]
+        if self.failed:
+            parts.append(f"[red]{len(self.failed)} failed[/]")
+        self.progress.update(self.task, completed=sum(self.done.values()), detail=" · ".join(parts))
+
+    def start(self, name: str, step: str) -> None:
+        with self._lock:
+            self.now[name] = step
+            self._refresh()
+
+    def step_done(self, name: str) -> None:
+        with self._lock:
+            self.done[name] = min(self.done[name] + 1, len(self.steps))
+            self._refresh()
+
+    def finish(self, name: str, ok: bool) -> None:
+        """Account finished (or gave up): count any skipped steps so the bar reaches 100%."""
+        with self._lock:
+            self.done[name] = len(self.steps)
+            self.now.pop(name, None)
+            if not ok:
+                self.failed.add(name)
+            self._refresh()
+
+
 def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
-                   dry_run: bool) -> RemoteSummary:
+                   dry_run: bool, ov: Overall) -> RemoteSummary:
     s = RemoteSummary(r.name)
     t0 = time.monotonic()
     rstage = cfg.paths.backup_dir / r.name
@@ -67,6 +120,7 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
     log(f"[{r.name}] --- start ---")
 
     # 1. export native files from Drive into staging
+    ov.start(r.name, "export")
     t = progress.add_task(f"{label} export", total=None, detail="listing...")
     res = rclone.run(cfg, [
         "copy", f"{r.name}:", str(rstage),
@@ -80,17 +134,21 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
         s.status = f"export failed ({res.code})"
         s.seconds = time.monotonic() - t0
         return s
+    ov.step_done(r.name)
 
     # 2. every docx also becomes markdown
     if cfg.markdown.enabled:
+        ov.start(r.name, "markdown")
         t = progress.add_task(f"{label} markdown", total=None, detail="scanning...")
         cr = convert.convert_tree(cfg, rstage, r.name, log, progress, t, dry_run)
         s.converted, s.up_to_date, s.pandoc_failed = cr.converted, cr.skipped, len(cr.failed)
         if cr.failed:
             s.status = "ok (pandoc errors)"
+        ov.step_done(r.name)
 
     # 3. optionally mirror the portable copies file-by-file into that account's Drive
     if cfg.upload_to_drive:
+        ov.start(r.name, "mirror")
         t = progress.add_task(f"{label} mirror", total=None, detail="comparing...")
         res = rclone.run(cfg, ["copy", str(rstage), dest, *dry], log, progress, t)
         s.uploaded, s.uploaded_bytes = res.transfers, res.bytes
@@ -98,14 +156,17 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
         if res.code != 0:
             progress.update(t, detail=f"[red]failed (exit {res.code})[/]")
             s.status = f"upload failed ({res.code})"
+        ov.step_done(r.name)
 
-    # 4. tar.gz snapshot -> Drive, keep the newest N
+    # 4. tar snapshot -> Drive, keep the newest N
     if cfg.snapshot.enabled:
+        ov.start(r.name, "snapshot")
         t = progress.add_task(f"{label} snapshot", total=None, detail="")
         sr = snapshot.run(cfg, r.name, log, progress, t, dry_run)
         s.snapshot = f"{sr.name} ({human_bytes(sr.bytes)})" if sr.bytes else sr.name
         if sr.status != "ok":
             s.status = sr.status
+        ov.step_done(r.name)
 
     s.seconds = time.monotonic() - t0
     return s
@@ -198,15 +259,22 @@ def run(cfg: Config, only: str | None, dry_run: bool, console: Console) -> int:
             if workers > 1:
                 log(f"backing up {len(remotes)} accounts, {workers} at a time")
             with make_progress(cfg, console) as progress:
+                ov = Overall(progress, remotes, steps_for(cfg))  # first task = top line
+
                 def one(r: Remote) -> RemoteSummary:
                     try:
-                        return _backup_remote(cfg, r, log, progress, dry_run)
+                        s = _backup_remote(cfg, r, log, progress, dry_run, ov)
                     except Exception as e:  # one account crashing must not stop the others
                         log(f"[{r.name}] CRASHED: {type(e).__name__}: {e}")
-                        return RemoteSummary(r.name, status=f"crashed ({type(e).__name__})")
+                        s = RemoteSummary(r.name, status=f"crashed ({type(e).__name__})")
+                    ov.finish(r.name, ok=s.status.startswith("ok"))
+                    return s
 
                 with ThreadPoolExecutor(max_workers=workers) as pool:
                     rows = list(pool.map(one, remotes))  # keeps config order
+                ok = sum(1 for s in rows if s.status.startswith("ok"))
+                progress.update(ov.task, detail=f"{ok}/{len(rows)} accounts ok"
+                                + (f" · [red]{len(rows) - ok} failed[/]" if ok < len(rows) else ""))
             for s in rows:
                 log(f"[{s.name}] summary: {s.status}; exported {s.exported}; md {s.converted} "
                     f"(+{s.up_to_date} up to date, {s.pandoc_failed} failed); "
