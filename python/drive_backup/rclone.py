@@ -59,17 +59,20 @@ def export_filters(cfg: Config) -> list[str]:
     return rules
 
 
-def _detail(stats: dict) -> str:
-    done, total = stats.get("bytes", 0), stats.get("totalBytes", 0)
-    files = f"{stats.get('transfers', 0)}/{stats.get('totalTransfers', 0)} files"
-    checks = stats.get("totalChecks", 0)
-    parts = [f"{human_bytes(done)} / {human_bytes(total)}", files]
-    if checks:
-        parts.append(f"{stats.get('checks', 0)}/{checks} checked")
-    if stats.get("speed"):
+def _detail(stats: dict, finished: bool = False) -> str:
+    # rclone discovers files while it lists, so its totals keep growing until the
+    # listing is done - show plain running counts instead of "x of y".
+    parts = []
+    if stats.get("listed"):
+        parts.append(f"{stats['listed']} listed")
+    parts.append(f"{stats.get('checks', 0)} unchanged")
+    parts.append(f"{stats.get('transfers', 0)} copied ({human_bytes(stats.get('bytes', 0))})")
+    in_flight = stats.get("transferring") or []
+    if in_flight and not finished:
+        name = str(in_flight[0].get("name", ""))
+        parts.append(f"now: {name[-50:]}")
+    if stats.get("speed") and not finished:
         parts.append(f"{human_bytes(stats['speed'])}/s")
-    if stats.get("eta") is not None:
-        parts.append(f"ETA {human_secs(stats['eta'])}")
     if stats.get("errors"):
         parts.append(f"[red]{stats['errors']} errors[/]")
     return " · ".join(parts)
@@ -100,8 +103,8 @@ def run(cfg: Config, args: list[str], log: Log, progress: Progress, task: TaskID
         stats = rec.get("stats")
         if stats:
             last = stats
-            total = stats.get("totalBytes") or None
-            progress.update(task, completed=stats.get("bytes", 0), total=total, detail=_detail(stats))
+            # total stays None (pulsing bar) until rclone exits
+            progress.update(task, detail=_detail(stats))
             continue
 
         level = str(rec.get("level", "")).upper()
@@ -110,6 +113,5 @@ def run(cfg: Config, args: list[str], log: Log, progress: Progress, task: TaskID
         log(f"{level}: {obj}: {msg}" if obj else f"{level}: {msg}")
 
     code = proc.wait()
-    if last.get("totalBytes"):
-        progress.update(task, completed=last.get("bytes", 0), total=last["totalBytes"])
+    progress.update(task, total=1, completed=1, detail=_detail(last, finished=True))
     return RcloneResult(code=code, stats=last)

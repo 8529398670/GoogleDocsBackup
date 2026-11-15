@@ -5,9 +5,10 @@ import time
 from dataclasses import dataclass, field
 
 from rich.console import Console
-from rich.progress import (BarColumn, Progress, SpinnerColumn, TextColumn,
-                           TimeElapsedColumn)
+from rich.progress import (BarColumn, Progress, ProgressColumn, SpinnerColumn,
+                           TextColumn, TimeElapsedColumn)
 from rich.table import Table
+from rich.text import Text
 
 from . import convert, rclone
 from .config import Config, Remote
@@ -29,13 +30,20 @@ class RemoteSummary:
     notes: list[str] = field(default_factory=list)
 
 
+class _PercentColumn(ProgressColumn):
+    """Percentage, or blank while the total is still unknown."""
+
+    def render(self, task):
+        return Text("    " if task.total is None else f"{task.percentage:>3.0f}%")
+
+
 def make_progress(cfg: Config, console: Console) -> Progress:
     enabled = cfg.progress == "on" or (cfg.progress == "auto" and console.is_terminal)
     return Progress(
         SpinnerColumn(),
         TextColumn("{task.description}", style="bold"),
         BarColumn(bar_width=30),
-        TextColumn("{task.percentage:>3.0f}%"),
+        _PercentColumn(),
         TimeElapsedColumn(),
         TextColumn("{task.fields[detail]}"),
         console=console,
@@ -69,7 +77,6 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
         s.status = f"export failed ({res.code})"
         s.seconds = time.monotonic() - t0
         return s
-    progress.update(t, detail=f"{res.transfers} files · {human_bytes(res.bytes)}")
 
     # 2. every docx also becomes markdown
     if cfg.markdown.enabled:
@@ -90,8 +97,6 @@ def _backup_remote(cfg: Config, r: Remote, log: Log, progress: Progress,
     if res.code != 0:
         progress.update(t, detail=f"[red]failed (exit {res.code})[/]")
         s.status = f"upload failed ({res.code})"
-    else:
-        progress.update(t, detail=f"{res.transfers} files · {human_bytes(res.bytes)}")
 
     s.seconds = time.monotonic() - t0
     return s
