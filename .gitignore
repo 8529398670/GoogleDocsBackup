@@ -1,0 +1,23 @@
+# rclone config / Google tokens - never commit
+rclone.conf
+*.conf
+*token*
+*.json
+
+# Downloaded tools / binaries
+*.exe
+*.zip
+tools/
+bin/
+
+# Backup output and logs
+backup/
+backups/
+*.log
+
+# OS / editor junk
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
