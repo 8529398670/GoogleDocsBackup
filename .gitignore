@@ -1,6 +1,8 @@
 .claude/
 
 # rclone config / Google tokens - never commit
+private/
+logs/
 rclone.conf
 *.conf
 *token*

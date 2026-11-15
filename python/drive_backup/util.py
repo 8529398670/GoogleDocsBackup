@@ -56,6 +56,8 @@ class RunLock:
 
 def human_bytes(n: float | None) -> str:
     n = float(n or 0)
+    if n < 0:  # Google Docs report size -1 until exported
+        return "?"
     for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
         if n < 1024 or unit == "TiB":
             return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
