@@ -60,7 +60,16 @@ markdown:
   workers: 4               # parallel pandoc processes
   extra_args: []
 
-progress: auto             # auto (bars only in a real terminal) | on | off
+# Scheduled runs: `drive-backup service install` sets this up with the OS's own
+# scheduler (Windows Task Scheduler / macOS launchd / systemd timer on Linux).
+service:
+  name: DriveBackup          # task name / launchd label / systemd unit base name
+  days: [sunday]             # which weekdays; [] = every day
+  time: "03:00"              # 24h local time
+  windows_run_as: system     # system (needs admin, runs while logged out) | user
+  linux_scope: user          # user (~/.config/systemd/user) | system (/etc/systemd, needs root)
+
+progress: auto            # auto (bars only in a real terminal) | on | off
 
 tools:
   rclone_url: https://downloads.rclone.org/rclone-current-windows-amd64.zip

@@ -5,6 +5,7 @@
   drive-backup status
   drive-backup fetch-tools
   drive-backup auth NAME
+  drive-backup service install|uninstall|status|show
 
 Also works as `python -m drive_backup ...`. Settings live in config.yaml
 (see --config for how it is found).
@@ -21,7 +22,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from . import __version__, auth, runner, tools
+from . import __version__, auth, runner, service, tools
 from .config import load
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -84,6 +85,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("fetch-tools", help="download rclone + pandoc (Windows)")
     p_auth = sub.add_parser("auth", help="add or re-authorize a Drive remote")
     p_auth.add_argument("remote")
+    p_svc = sub.add_parser("service", help="scheduled runs: install / uninstall / status / show")
+    p_svc.add_argument("action", choices=["install", "uninstall", "status", "show"],
+                       help="show = print the task/plist/unit that install would write")
     return ap
 
 
@@ -115,4 +119,6 @@ def main(argv: list[str] | None = None) -> int:
         return tools.fetch(cfg, console)
     if a.cmd == "auth":
         return auth.start(cfg, a.remote, console)
+    if a.cmd == "service":
+        return service.main(cfg, a.action, console)
     return status(cfg, console)

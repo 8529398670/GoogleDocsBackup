@@ -63,6 +63,7 @@ next to the package. Relative paths in it are relative to the file itself.
 | `config.yaml` | all settings |
 | `pyproject.toml` | package metadata, the `drive-backup` command |
 | `run.bat`, `run.sh`, `run.command` | double-click / one-word launchers |
+| `install.bat`, `install.sh` | set up `.venv` + the scheduled service |
 | `gitPushUpdate.bat` | commits everything as the next commit number and pushes |
 | `backups/` | live backup, one folder per account (git-ignored) |
 | `snapshots/` | local tar.gz snapshots (git-ignored) |
@@ -70,10 +71,31 @@ next to the package. Relative paths in it are relative to the file itself.
 | `bin/` | rclone + pandoc on Windows (git-ignored) |
 | `logs/backup.log` | run log (git-ignored) |
 
-## Scheduled run (Windows)
+## Install as a scheduled service
 
-A Windows scheduled task runs `.venv\Scripts\python.exe -m drive_backup`
-from the repo root as SYSTEM, weekly on Sundays at 03:00.
+```
+install.bat              # Windows (asks for admin)
+./install.sh             # macOS / Debian / Linux
+```
+
+Both create `.venv`, install the package into it, and register the weekly run
+with the OS's own scheduler. Run them again after changing `service:` in
+`config.yaml`; `install.bat uninstall` / `./install.sh uninstall` removes it.
+
+| OS | Scheduler | Runs while logged out? |
+|---|---|---|
+| Windows | Task Scheduler task `DriveBackup`, as SYSTEM | yes (`windows_run_as: user`: no, but no admin needed) |
+| macOS | launchd agent `~/Library/LaunchAgents/local.drivebackup.plist` | no; a missed run starts after wake |
+| Linux | systemd timer `drivebackup.timer` (user units) | only with `sudo loginctl enable-linger $USER`, or set `linux_scope: system` and run `sudo ./install.sh` |
+
+Missed runs (PC off at the scheduled time) start at the next chance on all
+three. Directly:
+
+```
+drive-backup service install | uninstall | status | show
+```
+
+`show` prints the task XML / plist / unit files without installing anything.
 
 ## Exit codes
 

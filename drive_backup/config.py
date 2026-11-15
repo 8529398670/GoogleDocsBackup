@@ -61,6 +61,23 @@ class SnapshotOpts:
     compress_level: int = 6
 
 
+WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+@dataclass
+class ServiceOpts:
+    name: str = "DriveBackup"
+    days: list[str] = field(default_factory=lambda: ["sunday"])
+    time: str = "03:00"
+    windows_run_as: str = "system"
+    linux_scope: str = "user"
+
+    @property
+    def hour_minute(self) -> tuple[int, int]:
+        h, m = self.time.split(":")
+        return int(h), int(m)
+
+
 @dataclass
 class AuthOpts:
     task_prefix: str = "DriveBackupAuth-"
@@ -79,6 +96,7 @@ class Config:
     markdown: MarkdownOpts = field(default_factory=MarkdownOpts)
     progress: str = "auto"
     snapshot: SnapshotOpts = field(default_factory=SnapshotOpts)
+    service: ServiceOpts = field(default_factory=ServiceOpts)
     tools: ToolsOpts = field(default_factory=ToolsOpts)
     auth: AuthOpts = field(default_factory=AuthOpts)
 
@@ -185,6 +203,7 @@ def load(path: Path) -> Config:
         "rclone": RcloneOpts,
         "markdown": MarkdownOpts,
         "snapshot": SnapshotOpts,
+        "service": ServiceOpts,
         "tools": ToolsOpts,
         "auth": AuthOpts,
     }
@@ -199,6 +218,18 @@ def load(path: Path) -> Config:
         raise ValueError("config.yaml: snapshot.keep_local must be >= 0 and keep_drive >= 1")
     if not 0 <= s.compress_level <= 9:
         raise ValueError("config.yaml: snapshot.compress_level must be 0..9")
+    sv = cfg.service
+    sv.days = [d.lower() for d in sv.days]
+    if bad := [d for d in sv.days if d not in WEEKDAYS]:
+        raise ValueError(f"config.yaml: service.days has unknown day(s): {', '.join(bad)}")
+    if not re.fullmatch(r"([01]?\d|2[0-3]):[0-5]\d", str(sv.time)):
+        raise ValueError("config.yaml: service.time must be HH:MM (24h), e.g. \"03:00\"")
+    if sv.windows_run_as not in ("system", "user"):
+        raise ValueError("config.yaml: service.windows_run_as must be system or user")
+    if sv.linux_scope not in ("user", "system"):
+        raise ValueError("config.yaml: service.linux_scope must be user or system")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", sv.name):
+        raise ValueError("config.yaml: service.name may only use letters, digits, _ . -")
     cfg.source = path
 
     # rclone / pandoc: use the configured path if it works; otherwise look the
