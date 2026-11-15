@@ -1,0 +1,51 @@
+# Drive backup settings. Everything tweakable lives here.
+# Paths match the live install on the HP EliteBook.
+
+paths:
+  bin: C:\Users\juno\agent\bin                          # rclone.exe + pandoc.exe
+  rclone_config: C:\Users\juno\agent\rclone\rclone.conf # holds Google tokens - never commit
+  stage: C:\Users\juno\agent\drive-backup-stage         # local conversion area
+  log: C:\Users\juno\agent\rclone\backup.log
+
+# One rclone remote per Google account. Set enabled: false to skip one.
+remotes:
+  - {name: gdrive,  label: banjo.kazooie.2955@gmail.com, enabled: true}
+  - {name: gdrive2, label: cerbus.collin@gmail.com,      enabled: true}
+
+# Folder inside each account's Drive that receives the backup.
+backup_folder: Backups
+
+# Google native files are exported as these formats (and only these are copied).
+export_formats: [docx, xlsx, pptx]
+
+# rclone filter patterns excluded from the export. A leading "/" anchors to the
+# Drive root, so "/Backups/**" skips only our own backup folder, not other
+# folders that happen to be named Backups.
+exclude:
+  - /Backups/**
+
+rclone:
+  log_level: NOTICE        # DEBUG | INFO | NOTICE | ERROR
+  transfers: 4
+  checkers: 8
+  extra_args: []           # e.g. ["--tpslimit", "10"]
+
+markdown:
+  enabled: true
+  pandoc_to: markdown      # e.g. gfm for GitHub-flavoured markdown
+  wrap: none
+  media_suffix: ._media    # "Doc.docx" -> images in "Doc._media" (matches the old script)
+  only_if_newer: true      # skip docs whose .md is already newer than the .docx
+  workers: 4               # parallel pandoc processes
+  extra_args: []
+
+progress: auto             # auto (bars only in a real terminal) | on | off
+
+tools:
+  rclone_url: https://downloads.rclone.org/rclone-current-windows-amd64.zip
+  pandoc_release_api: https://api.github.com/repos/jgm/pandoc/releases/latest
+  pandoc_asset_glob: pandoc-*-windows-x86_64.zip
+
+auth:
+  task_prefix: JunoRcloneAuth-
+  timeout_seconds: 90

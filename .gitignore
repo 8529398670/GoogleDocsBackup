@@ -15,6 +15,12 @@ backup/
 backups/
 *.log
 
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
 # OS / editor junk
 Thumbs.db
 desktop.ini

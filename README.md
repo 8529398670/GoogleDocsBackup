@@ -35,14 +35,48 @@ account's Drive `Backups` folder, mirroring the folder structure.
 
 ## Files in this folder
 
+`windows/` - the original PowerShell scripts (what the live task runs):
+
 - `drive-backup.ps1` - the backup itself (above)
 - `fetch-tools.ps1` - downloads rclone + pandoc into the bin folder
 - `start-rclone-auth.ps1` - adds a Drive account (creates an rclone remote)
   via an auth task
 - `migrate-stage.ps1` - one-off staging-folder move, Sep 2026
 - `check_rclone.ps1` - checks whether rclone is currently running
-- `gitPushUpdate.bat` - commits everything in this folder with the next
-  commit number as the message, then pushes (keeps this copy in git)
+
+`python/` - the Python version (see below).
+
+`gitPushUpdate.bat` - commits everything in this folder with the next
+commit number as the message, then pushes (keeps this copy in git)
+
+## Python version (`python/`)
+
+Same job as the PowerShell scripts, with live progress bars, a summary
+table, and every setting in `python/config.yaml`.
+
+```
+pip install -r python/requirements.txt
+python python/backup.py run                    # full backup
+python python/backup.py run --remote gdrive    # one account
+python python/backup.py run --dry-run          # show what would happen
+python python/backup.py status                 # rclone running? last run?
+python python/backup.py fetch-tools            # download rclone + pandoc
+python python/backup.py auth gdrive2           # re-authorize (admin prompt)
+```
+
+Differences from the PowerShell version:
+
+- **Fixes the self-backup bug.** The PowerShell script mixes `--include` and
+  `--exclude`, and rclone matches `*.docx` before `Backups/**`, so each run
+  re-exported the `Backups` folder into itself (`Backups/Backups/...`).
+  Python uses ordered `--filter` rules, excluding `/Backups/**` first and
+  anchoring it to the Drive root.
+- Markdown image links are relative, so they still work after download.
+- pandoc runs in parallel (`markdown.workers`).
+- Exit codes: 0 ok, 1 a remote failed, 2 setup/config error, 3 another run
+  in progress (lock file), 4 only pandoc errors.
+- Progress bars turn off automatically when there's no terminal (scheduled
+  task); the log is always written, in the same format as before.
 
 ## Live paths (where the running program actually lives)
 
