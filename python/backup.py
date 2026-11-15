@@ -1,5 +1,6 @@
 """Google Drive backup - Python version.
 
+  python backup.py                 (same as: run)
   python backup.py run [--remote NAME] [--dry-run]
   python backup.py fetch-tools
   python backup.py auth NAME
@@ -62,7 +63,7 @@ def main() -> int:
 
     ap =argparse.ArgumentParser(description="Google Drive backup")
     ap.add_argument("--config", type=Path, default=HERE / "config.yaml")
-    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub = ap.add_subparsers(dest="cmd")  # no command = run
     p_run = sub.add_parser("run", help="export, convert and upload")
     p_run.add_argument("--remote", help="only back up this remote")
     p_run.add_argument("--dry-run", action="store_true", help="show what would happen, change nothing")
@@ -71,6 +72,8 @@ def main() -> int:
     p_auth.add_argument("remote")
     sub.add_parser("status", help="is rclone running, and how did the last run go")
     a = ap.parse_args()
+    if a.cmd is None:
+        a.cmd, a.remote, a.dry_run = "run", None, False
 
     console = Console()
     try:
