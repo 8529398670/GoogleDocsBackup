@@ -67,11 +67,12 @@ next to the package. Relative paths in it are relative to the file itself.
 | `backups/` | live backup, one folder per account (git-ignored) |
 | `snapshots/` | local tar.gz snapshots (git-ignored) |
 | `private/rclone.conf` | Google tokens (git-ignored, never commit) |
+| `bin/` | rclone + pandoc on Windows (git-ignored) |
 | `logs/backup.log` | run log (git-ignored) |
 
 ## Scheduled run (Windows)
 
-The `JunoDriveBackup` task runs `.venv\Scripts\python.exe -m drive_backup`
+A Windows scheduled task runs `.venv\Scripts\python.exe -m drive_backup`
 from the repo root as SYSTEM, weekly on Sundays at 03:00.
 
 ## Exit codes

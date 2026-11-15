@@ -63,7 +63,7 @@ class SnapshotOpts:
 
 @dataclass
 class AuthOpts:
-    task_prefix: str = "JunoRcloneAuth-"
+    task_prefix: str = "DriveBackupAuth-"
     timeout_seconds: int = 90
 
 
@@ -101,7 +101,13 @@ class Config:
         """Use exe for this tool and write it into config.yaml."""
         self.exes[name] = exe
         if self.source:
-            save_path_value(self.source, f"{name}_exe", str(exe))
+            # inside the repo -> save as ./relative so no username/home path lands in git
+            base = self.source.resolve().parent
+            try:
+                value = "./" + exe.resolve().relative_to(base).as_posix()
+            except ValueError:
+                value = str(exe)
+            save_path_value(self.source, f"{name}_exe", value)
 
 
 EXE = ".exe" if os.name == "nt" else ""

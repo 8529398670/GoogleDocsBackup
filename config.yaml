@@ -4,9 +4,9 @@ paths:
   # rclone / pandoc programs. Leave empty (or wrong) and the next run looks them
   # up (bin folder, PATH, /opt/homebrew/bin, /usr/local/bin, /usr/bin, ...)
   # and writes what it found here.
-  rclone_exe: 'C:\Users\juno\agent\bin\rclone.exe'
-  pandoc_exe: 'C:\Users\juno\agent\bin\pandoc.exe'
-  bin: C:\Users\juno\agent\bin   # where fetch-tools (Windows) downloads them to
+  rclone_exe: ./bin/rclone.exe
+  pandoc_exe: ./bin/pandoc.exe
+  bin: ./bin                     # where fetch-tools (Windows) downloads them to (git-ignored)
   # Relative paths are relative to this file (the repo root).
   # private/, logs/, backups/ and snapshots/ are all git-ignored.
   rclone_config: ./private/rclone.conf  # holds Google tokens - never commit
@@ -15,8 +15,9 @@ paths:
 
 # One rclone remote per Google account. Set enabled: false to skip one.
 remotes:
-  - {name: gdrive,  label: banjo.kazooie.2955@gmail.com, enabled: true}
-  - {name: gdrive2, label: cerbus.collin@gmail.com,      enabled: true}
+# "label" is optional and only shown in the progress bars.
+  - {name: gdrive,  enabled: true}
+  - {name: gdrive2, enabled: true}
 
 # Folder inside each account's Drive that receives snapshots (and the mirror below).
 backup_folder: Backups
@@ -67,5 +68,5 @@ tools:
   pandoc_asset_glob: pandoc-*-windows-x86_64.zip
 
 auth:
-  task_prefix: JunoRcloneAuth-
+  task_prefix: DriveBackupAuth-
   timeout_seconds: 90
