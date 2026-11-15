@@ -18,6 +18,7 @@ from .util import Log
 class ConvertResult:
     converted: int = 0
     skipped: int = 0
+    not_docs: int = 0  # empty files and Word lock files - skipped, not failures
     failed: list[Path] = field(default_factory=list)
 
 
@@ -108,8 +109,15 @@ def convert_tree(cfg: Config, root: Path, tag: str, log: Log, progress: Progress
                  task: TaskID, dry_run: bool) -> ConvertResult:
     res = ConvertResult()
     docs = sorted(root.rglob("*.docx"))
+    # Not real documents: Word lock files (~$Name.docx, ~160 bytes, uploaded by
+    # OneDrive) and empty 0-byte .docx files. Nothing to convert - skip, don't fail.
+    junk = [d for d in docs if d.name.startswith("~$") or d.stat().st_size == 0]
+    res.not_docs = len(junk)
+    docs = [d for d in docs if d not in set(junk)]
     todo = [d for d in docs if _needs(d, d.with_suffix(".md"), cfg.markdown.only_if_newer)]
     res.skipped = len(docs) - len(todo)
+    if res.not_docs:
+        log(f"[{tag}] skipped {res.not_docs} empty / Word lock (~$) .docx file(s) - not real documents")
     progress.update(task, total=max(len(todo), 1), completed=0,
                     detail=f"0/{len(todo)} docs ({res.skipped} up to date)")
 

@@ -54,7 +54,8 @@ mirror_deletes: true
 # Extra rclone filter patterns to skip during the export. Each account's own
 # Backups/ folder (where snapshots go) is always skipped automatically.
 # A leading "/" anchors to the Drive root, e.g. ["/Old Stuff/**", "*.tmp.docx"]
-exclude: []
+exclude:
+  - "~$*"                 # Word lock files (~$Doc.docx) that OneDrive uploads - not real docs
 
 rclone:
   log_level: NOTICE        # DEBUG | INFO | NOTICE | ERROR
